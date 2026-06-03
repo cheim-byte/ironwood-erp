@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ironwood Solutions — ERP</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0e13;--bg2:#111520;--bg3:#171d2b;--bg4:#1e2638;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --amber:#c47b2b;--amber2:#e8a24a;--amber3:#f5d9a8;
+  --cream:#f0e8d8;--mist:#6b7a99;--muted:#3d4a63;
+  --green:#2d6a4f;--green2:#52b788;--green3:#d8f3dc;
+  --red:#9b2226;--red2:#e63946;--red3:#ffd6d8;
+  --blue:#1d3557;--blue2:#457b9d;--blue3:#cce5f5;
+  --purple:#4a1942;--purple2:#9b5de5;--purple3:#ede0ff;
+  --gold:#c9a84c;--gold2:#f0d080;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --radius:10px;
+}
+html{height:100%}
+body{background:var(--bg);color:var(--cream);font-family:'Outfit',sans-serif;height:100%;display:flex;flex-direction:column;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--muted);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--amber)}
+button{cursor:pointer}
+input,select,textarea{font-family:'Outfit',sans-serif}
+a{color:var(--amber);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.08em;color:var(--amber2);line-height:1;display:block}
+.logo-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--mist);letter-spacing:0.18em;text-transform:uppercase;margin-top:2px}
+.sidebar-nav{padding:12px 8px;flex:1}
+.nav-section{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.16em;padding:12px 8px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:7px;cursor:pointer;transition:all 0.18s;border:none;background:none;color:var(--mist);font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,0.05);color:var(--cream)}
+.nav-item.active{background:rgba(196,123,43,0.15);color:var(--amber2)}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--amber);color:var(--bg);font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:8px;font-weight:700}
+.sidebar-footer{padding:12px;border-top:1px solid var(--border)}
+.sync-status{display:flex;align-items:center;gap:7px;padding:8px 10px;background:var(--bg3);border-radius:6px;margin-bottom:6px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all 0.3s}
+.sync-dot.live{background:var(--green2);box-shadow:0 0 6px var(--green2)}
+.sync-dot.syncing{background:var(--amber2);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--red2)}
+.sync-text{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist)}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.06em;color:var(--cream)}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+.btn{border:none;border-radius:6px;padding:8px 16px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;transition:all 0.18s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--amber);color:var(--bg)}
+.btn-primary:hover{background:var(--amber2);transform:translateY(-1px)}
+.btn-ghost{background:rgba(255,255,255,0.06);color:var(--mist);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--cream)}
+.btn-danger{background:rgba(230,57,70,0.12);color:var(--red2);border:1px solid rgba(230,57,70,0.25)}
+.btn-danger:hover{background:rgba(230,57,70,0.2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--mist);margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-amber::before{background:var(--amber)}
+.kpi-green::before{background:var(--green2)}
+.kpi-blue::before{background:var(--blue2)}
+.kpi-purple::before{background:var(--purple2)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--mist);margin-bottom:8px}
+.kpi-value{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.04em;color:var(--cream);line-height:1}
+.kpi-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-top:4px}
+
+.badge{font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;border-radius:3px;white-space:nowrap;display:inline-block}
+.badge-pursuing{background:rgba(82,183,136,0.12);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.badge-watching{background:rgba(69,123,157,0.12);color:var(--blue2);border:1px solid rgba(69,123,157,0.25)}
+.badge-bidding{background:rgba(196,123,43,0.12);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.badge-subbing{background:rgba(155,93,229,0.12);color:var(--purple2);border:1px solid rgba(155,93,229,0.25)}
+.badge-pass{background:rgba(107,122,153,0.12);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
+.badge-won{background:rgba(82,183,136,0.15);color:var(--green2);border:1px solid rgba(82,183,136,0.3)}
+.badge-lost{background:rgba(230,57,70,0.1);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
+.badge-active{background:rgba(82,183,136,0.1);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.badge-inactive{background:rgba(107,122,153,0.1);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
+.badge-sources{background:rgba(82,183,136,0.1);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.badge-presol{background:rgba(196,123,43,0.1);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.badge-rfp{background:rgba(230,57,70,0.08);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
+.badge-award{background:rgba(107,122,153,0.1);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
+.badge-default{background:rgba(107,122,153,0.08);color:var(--mist);border:1px solid rgba(107,122,153,0.15)}
+
+.form-group{margin-bottom:14px}
+.form-label{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--amber);margin-bottom:6px;display:block}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--cream);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--amber)}
+.form-input::placeholder,.form-textarea::placeholder{color:var(--muted)}
+.form-select option{background:var(--bg3)}
+.form-textarea{resize:vertical;min-height:80px;line-height:1.5}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+.table{width:100%;border-collapse:collapse}
+.table th{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--mist);padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.table td{padding:11px 12px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;vertical-align:middle}
+.table tr:hover td{background:rgba(255,255,255,0.02)}
+.table tr:last-child td{border-bottom:none}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.05em;color:var(--cream)}
+.divider{height:1px;background:var(--border);margin:20px 0}
+.mono{font-family:'DM Mono',monospace}
+.muted{color:var(--mist)}
+.amber{color:var(--amber2)}
+.green{color:var(--green2)}
+.red{color:var(--red2)}
+
+.spinner{width:28px;height:28px;border:2px solid rgba(196,123,43,0.2);border-top-color:var(--amber);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn 0.25s ease both}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--mist)}
+.empty-icon{font-size:40px;margin-bottom:12px;display:block;opacity:0.5}
+.empty-title{font-size:16px;font-weight:600;color:var(--cream);margin-bottom:6px;opacity:0.7}
+.empty-sub{font-size:13px;line-height:1.6}
+
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);color:var(--cream);padding:11px 18px;border-radius:8px;font-family:'DM Mono',monospace;font-size:11px;border-left:3px solid var(--amber);z-index:9999;transform:translateY(60px);opacity:0;transition:all 0.3s;pointer-events:none;box-shadow:var(--shadow)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-left-color:var(--red2)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.05em;color:var(--cream)}
+.modal-close{background:none;border:none;color:var(--mist);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px;transition:color 0.15s}
+.modal-close:hover{color:var(--cream)}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* SEARCH */
+.search-hero-inner{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.ai-label{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ai-badge{background:rgba(196,123,43,0.15);border:1px solid rgba(196,123,43,0.3);border-radius:3px;padding:2px 6px;font-size:9px;color:var(--amber2)}
+.search-row{display:flex;gap:8px}
+.search-ta{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:12px 14px;color:var(--cream);font-size:14px;outline:none;resize:none;min-height:48px;max-height:100px;transition:border-color 0.2s;font-family:'Outfit',sans-serif}
+.search-ta:focus{border-color:var(--amber)}
+.search-ta::placeholder{color:var(--muted);font-style:italic}
+.chip{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:4px 11px;font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);cursor:pointer;transition:all 0.18s}
+.chip:hover{border-color:var(--amber);color:var(--amber2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.filter-sel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--cream);font-family:'DM Mono',monospace;font-size:11px;outline:none;cursor:pointer}
+.filter-sel:focus{border-color:var(--amber)}
+.opp-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;transition:all 0.18s;position:relative;overflow:hidden;margin-bottom:10px}
+.opp-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bg4);transition:background 0.2s}
+.opp-card:hover{border-color:var(--border2)}
+.opp-card:hover::before{background:var(--amber)}
+.opp-card.tagged-pursuing::before{background:var(--green2)}
+.opp-card.tagged-watching::before{background:var(--blue2)}
+.opp-card.tagged-bidding::before{background:var(--amber2)}
+.opp-card.tagged-subbing::before{background:var(--purple2)}
+.opp-card.tagged-pass::before{background:var(--muted)}
+.opp-title{font-size:14px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:8px;flex:1}
+.opp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.meta-k{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
+.meta-v{font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)}
+.ai-sum{background:rgba(196,123,43,0.05);border-left:2px solid var(--amber);padding:8px 12px;border-radius:0 5px 5px 0;font-size:12px;color:var(--mist);line-height:1.5;font-style:italic;margin:8px 0}
+.ai-sum-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:0.12em;font-style:normal;margin-bottom:3px}
+.opp-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;gap:8px}
+.tag-sel{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--cream);cursor:pointer;outline:none}
+.tag-sel:focus{border-color:var(--amber)}
+
+/* KANBAN */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;min-width:1100px}
+.lane{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:var(--radius);padding:14px;min-height:300px}
+.lane-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.lane-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em}
+.lane-pursuing .lane-title{color:var(--green2)}
+.lane-watching .lane-title{color:var(--blue2)}
+.lane-bidding .lane-title{color:var(--amber2)}
+.lane-subbing .lane-title{color:var(--purple2)}
+.lane-pass .lane-title{color:var(--mist)}
+.lane-count{font-family:'DM Mono',monospace;font-size:10px;background:rgba(255,255,255,0.06);border-radius:8px;padding:2px 7px;color:var(--mist)}
+.pipe-card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:12px 13px;margin-bottom:8px;cursor:grab;transition:all 0.18s;position:relative;overflow:hidden}
+.pipe-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.lane-pursuing .pipe-card::before{background:var(--green2)}
+.lane-watching .pipe-card::before{background:var(--blue2)}
+.lane-bidding .pipe-card::before{background:var(--amber2)}
+.lane-subbing .pipe-card::before{background:var(--purple2)}
+.lane-pass .pipe-card::before{background:var(--muted)}
+.pipe-card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.pipe-card:active{cursor:grabbing}
+.pipe-title{font-size:12px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:7px}
+.pipe-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:3px}
+.pipe-actions{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05)}
+.move-sel{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);cursor:pointer;outline:none}
+.rm-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:3px;transition:color 0.15s}
+.rm-btn:hover{color:var(--red2)}
+.empty-lane{text-align:center;padding:24px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);border:1px dashed rgba(255,255,255,0.06);border-radius:6px}
+.kanban-wrap{overflow-x:auto;padding-bottom:8px}
+
+/* SUBS */
+.sub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.sub-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.18s}
+.sub-card:hover{border-color:var(--border2)}
+.sub-name{font-size:15px;font-weight:700;color:var(--cream);margin-bottom:4px}
+.sub-trade{font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px}
+.sub-detail{font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);margin-bottom:3px}
+.sub-detail span{color:var(--cream)}
+.star{color:var(--amber);font-size:12px}
+.star.empty{color:var(--muted)}
+
+/* FINANCIALS */
+.fin-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.fin-row:last-child{border-bottom:none}
+.fin-label{font-size:13px;color:var(--cream)}
+.fin-amount{font-family:'DM Mono',monospace;font-size:13px;font-weight:600}
+.fin-positive{color:var(--green2)}
+.fin-negative{color:var(--red2)}
+.fin-neutral{color:var(--mist)}
+.inv-status{display:inline-block;padding:3px 8px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px}
+.inv-paid{background:rgba(82,183,136,0.12);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.inv-pending{background:rgba(196,123,43,0.1);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.inv-overdue{background:rgba(230,57,70,0.1);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
+.margin-bar{height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-top:6px}
+.margin-fill{height:100%;background:linear-gradient(90deg,var(--red2),var(--amber),var(--green2));border-radius:4px;transition:width 0.4s}
+
+/* ACTIVITY */
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.activity-text{font-size:13px;color:var(--cream);line-height:1.4}
+.activity-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-top:2px}
+.deadline-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.deadline-item:last-child{border-bottom:none}
+.deadline-name{font-size:13px;color:var(--cream);flex:1;padding-right:12px}
+.deadline-days{font-family:'DM Mono',monospace;font-size:11px;padding:3px 8px;border-radius:4px}
+.deadline-urgent{background:rgba(230,57,70,0.12);color:var(--red2)}
+.deadline-soon{background:rgba(196,123,43,0.12);color:var(--amber2)}
+.deadline-ok{background:rgba(82,183,136,0.1);color:var(--green2)}
+
+/* SETTINGS */
+.setting-group{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.setting-group-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--amber);margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-mark">Ironwood</span>
+    <span class="logo-sub">Solutions ERP</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Main</div>
+    <button class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">📊</span>Dashboard</button>
+    <button class="nav-item" onclick="nav('search')"><span class="nav-icon">🔍</span>Search<span class="nav-badge" id="nb-pipeline">0</span></button>
+    <button class="nav-item" onclick="nav('pipeline')"><span class="nav-icon">📋</span>Pipeline</button>
+    <div class="nav-section">Business</div>
+    <button class="nav-item" onclick="nav('subs')"><span class="nav-icon">👷</span>Subcontractors</button>
+    <button class="nav-item" onclick="nav('pricing')"><span class="nav-icon">💰</span>Pricing & Quotes</button>
+    <button class="nav-item" onclick="nav('financials')"><span class="nav-icon">📈</span>Financials</button>
+    <div class="nav-section">Intelligence</div>
+    <button class="nav-item" onclick="nav('agencies')"><span class="nav-icon">🏛️</span>Agencies</button>
+    <button class="nav-item" onclick="nav('winloss')"><span class="nav-icon">🏆</span>Win/Loss Log</button>
+    <div class="nav-section">System</div>
+    <button class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span>Settings</button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sync-status">
+      <div class="sync-dot" id="syncDot"></div>
+      <span class="sync-text" id="syncText">Not synced</span>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center">Google Sheets Backend</div>
+  </div>
+</aside>
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="pageTitle">Dashboard</div>
+    <div class="topbar-actions" id="topbarActions"></div>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ CONFIG ════════════════════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbz_Y_0cMyGx7DgQvun-6tXIp0dnoEOHY-r5tBo4v2NoUFvvv3TqCEIE05baje-WrUTV/exec';
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
+const SECRET = 'ironwood2024erp';
+const SAM_KEY_STORE = 'iw_sam_key';
+
+// ══ STATE ═════════════════════════════════════════════════════════════════════
+const S = {
+  pipeline: {},
+  subs: [],
+  quotes: [],
+  invoices: [],
+  agencies: [],
+  winloss: [],
+  activity: [],
+  settings: { company: 'Ironwood Solutions', margin: 15, samKey: '' }
+};
+
+let currentView = 'dashboard';
+let searchOffset = 0, searchTotal = 0, searchLimit = 25;
+let lastKeywords = '';
+let dragPid = null;
+let syncing = false;
+
+const TAG_LABELS = { pursuing:'Pursuing', watching:'Watching', bidding:'Bidding', subbing:'Subbing', pass:'Pass' };
+const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
+const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
+const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings'];
+
+// ══ GOOGLE SHEETS SYNC ════════════════════════════════════════════════════════
+function setSyncStatus(state, msg) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot';
+  if (state === 'live') { dot.classList.add('live'); txt.textContent = msg || 'Synced'; }
+  else if (state === 'syncing') { dot.classList.add('syncing'); txt.textContent = msg || 'Syncing…'; }
+  else if (state === 'error') { dot.classList.add('error'); txt.textContent = msg || 'Sync error'; }
+  else { txt.textContent = msg || 'Not synced'; }
+}
+
+async function sheetRead(tab) {
+  const url = `${API_URL}?token=${SECRET}&action=read&tab=${tab}&sheetUrl=${encodeURIComponent(SHEET_URL)}`;
+  const res = await fetch(url);
+  const d = await res.json();
+  if (d.error) throw new Error(d.error);
+  return d.data || [];
+}
+
+async function sheetWrite(tab, rows) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: SECRET, action: 'write', tab, sheetUrl: SHEET_URL, rows })
+  });
+  const d = await res.json();
+  if (d.error) throw new Error(d.error);
+  return true;
+}
+
+// Serialize/deserialize each module to/from sheet rows
+function pipelineToRows() {
+  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url']];
+  Object.entries(S.pipeline).forEach(([pid, p]) => rows.push([pid, p.tag||'', p.title||'', p.agency||'', p.naics||'', p.solNum||'', p.deadline||'', p.url||'']));
+  return rows;
+}
+function rowsToPipeline(rows) {
+  const p = {};
+  rows.slice(1).forEach(r => { if (r[0]) p[r[0]] = { tag:r[1], title:r[2], agency:r[3], naics:r[4], solNum:r[5], deadline:r[6], url:r[7] }; });
+  return p;
+}
+function subsToRows() {
+  const rows = [['name','trade','phone','email','naics','samStatus','insExpiry','status','rating','notes']];
+  S.subs.forEach(s => rows.push([s.name||'',s.trade||'',s.phone||'',s.email||'',s.naics||'',s.samStatus||'',s.insExpiry||'',s.status||'active',s.rating||0,s.notes||'']));
+  return rows;
+}
+function rowsToSubs(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({name:r[0],trade:r[1],phone:r[2],email:r[3],naics:r[4],samStatus:r[5],insExpiry:r[6],status:r[7],rating:parseInt(r[8])||0,notes:r[9]})); }
+function quotesToRows() {
+  const rows = [['name','opportunity','marginPct','created','lines']];
+  S.quotes.forEach(q => rows.push([q.name||'',q.opportunity||'',q.marginPct||15,q.created||'',JSON.stringify(q.lines||[])]));
+  return rows;
+}
+function rowsToQuotes(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({name:r[0],opportunity:r[1],marginPct:parseFloat(r[2])||15,created:r[3],lines:JSON.parse(r[4]||'[]')})); }
+function invoicesToRows() {
+  const rows = [['desc','amount','date','type','status']];
+  S.invoices.forEach(i => rows.push([i.desc||'',i.amount||0,i.date||'',i.type||'income',i.status||'pending']));
+  return rows;
+}
+function rowsToInvoices(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({desc:r[0],amount:parseFloat(r[1])||0,date:r[2],type:r[3],status:r[4]})); }
+function agenciesToRows() {
+  const rows = [['name','abbr','lastContact','notes','contacts']];
+  S.agencies.forEach(a => rows.push([a.name||'',a.abbr||'',a.lastContact||'',a.notes||'',JSON.stringify(a.contacts||[])]));
+  return rows;
+}
+function rowsToAgencies(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({name:r[0],abbr:r[1],lastContact:r[2],notes:r[3],contacts:JSON.parse(r[4]||'[]')})); }
+function wlToRows() {
+  const rows = [['name','agency','value','outcome','date','reason']];
+  S.winloss.forEach(w => rows.push([w.name||'',w.agency||'',w.value||0,w.outcome||'',w.date||'',w.reason||'']));
+  return rows;
+}
+function rowsToWL(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({name:r[0],agency:r[1],value:parseFloat(r[2])||0,outcome:r[3],date:r[4],reason:r[5]})); }
+function activityToRows() {
+  const rows = [['text','color','time']];
+  S.activity.slice(0,50).forEach(a => rows.push([a.text||'',a.color||'',a.time||'']));
+  return rows;
+}
+function rowsToActivity(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({text:r[0],color:r[1],time:r[2]})); }
+function settingsToRows() { return [['key','value'],['company',S.settings.company||'Ironwood Solutions'],['margin',S.settings.margin||15]]; }
+function rowsToSettings(rows) {
+  const s = { company:'Ironwood Solutions', margin:15, samKey: localStorage.getItem(SAM_KEY_STORE)||'' };
+  rows.slice(1).forEach(r => { if (r[0]==='company') s.company=r[1]; if (r[0]==='margin') s.margin=parseFloat(r[1])||15; });
+  return s;
+}
+
+async function syncToSheet(tab) {
+  const map = {
+    Pipeline: pipelineToRows, Subcontractors: subsToRows, Quotes: quotesToRows,
+    Invoices: invoicesToRows, Agencies: agenciesToRows, WinLoss: wlToRows,
+    Activity: activityToRows, Settings: settingsToRows
+  };
+  if (map[tab]) await sheetWrite(tab, map[tab]());
+}
+
+async function loadFromSheet() {
+  setSyncStatus('syncing', 'Loading…');
+  try {
+    const [pipe, subs, quotes, inv, ag, wl, act, settings] = await Promise.all([
+      sheetRead('Pipeline'), sheetRead('Subcontractors'), sheetRead('Quotes'),
+      sheetRead('Invoices'), sheetRead('Agencies'), sheetRead('WinLoss'),
+      sheetRead('Activity'), sheetRead('Settings')
+    ]);
+    S.pipeline = rowsToPipeline(pipe);
+    S.subs = rowsToSubs(subs);
+    S.quotes = rowsToQuotes(quotes);
+    S.invoices = rowsToInvoices(inv);
+    S.agencies = rowsToAgencies(ag);
+    S.winloss = rowsToWL(wl);
+    S.activity = rowsToActivity(act);
+    S.settings = rowsToSettings(settings);
+    S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
+    setSyncStatus('live', 'Synced');
+    updateBadges();
+    renderView(currentView);
+    toast('Data loaded from Google Sheets ✓');
+  } catch(e) {
+    setSyncStatus('error', 'Sync failed');
+    toast('Sync error: ' + e.message, true);
+  }
+}
+
+async function save(tab) {
+  setSyncStatus('syncing', 'Saving…');
+  try {
+    if (tab) await syncToSheet(tab);
+    else await Promise.all(TABS.map(t => syncToSheet(t)));
+    setSyncStatus('live', 'Saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    setSyncStatus('error', 'Save failed');
+    toast('Save error — check your connection', true);
+  }
+}
+
+function logActivity(text, color='var(--amber)') {
+  S.activity.unshift({ text, color, time: new Date().toISOString() });
+  if (S.activity.length > 50) S.activity.pop();
+  syncToSheet('Activity').catch(()=>{});
+  updateBadges();
+}
+
+function updateBadges() {
+  document.getElementById('nb-pipeline').textContent = Object.keys(S.pipeline).length;
+}
+
+// ══ NAVIGATION ════════════════════════════════════════════════════════════════
+const PAGE_TITLES = { dashboard:'Dashboard', search:'Opportunity Search', pipeline:'Contract Pipeline', subs:'Subcontractors', pricing:'Pricing & Quotes', financials:'Financials', agencies:'Agency Tracker', winloss:'Win / Loss Log', settings:'Settings' };
+
+function nav(v) {
+  currentView = v;
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[v] || v;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const map = ['dashboard','search','pipeline','subs','pricing','financials','agencies','winloss','settings'];
+  const idx = map.indexOf(v);
+  const items = document.querySelectorAll('.nav-item');
+  if (idx >= 0 && items[idx]) items[idx].classList.add('active');
+  renderView(v);
+}
+
+function renderView(v) {
+  const c = document.getElementById('content');
+  const ta = document.getElementById('topbarActions');
+  ta.innerHTML = '';
+  c.innerHTML = '';
+  const fns = { dashboard:renderDashboard, search:renderSearch, pipeline:renderPipeline, subs:renderSubs, pricing:renderPricing, financials:renderFinancials, agencies:renderAgencies, winloss:renderWinLoss, settings:renderSettings };
+  if (fns[v]) fns[v](c, ta);
+}
+
+// ══ DASHBOARD ═════════════════════════════════════════════════════════════════
+function renderDashboard(c, ta) {
+  ta.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="loadFromSheet()">↻ Refresh</button>`;
+  const tagged = Object.keys(S.pipeline).length;
+  const pursuing = Object.values(S.pipeline).filter(p=>p.tag==='pursuing').length;
+  const bidding = Object.values(S.pipeline).filter(p=>p.tag==='bidding').length;
+  const totalRevenue = S.invoices.filter(i=>i.status==='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const pending = S.invoices.filter(i=>i.status==='pending').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const won = S.winloss.filter(w=>w.outcome==='won').length;
+  const lost = S.winloss.filter(w=>w.outcome==='lost').length;
+  const winRate = won+lost>0 ? Math.round(won/(won+lost)*100) : 0;
+  const deadlines = Object.values(S.pipeline).filter(p=>p.deadline&&p.tag!=='pass').map(p=>({...p,days:Math.ceil((new Date(p.deadline)-new Date())/86400000)})).filter(p=>p.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
+
+  c.innerHTML = `
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="kpi kpi-amber"><div class="kpi-label">Pipeline</div><div class="kpi-value">${tagged}</div><div class="kpi-sub">${pursuing} pursuing · ${bidding} bidding</div></div>
+    <div class="kpi kpi-green"><div class="kpi-label">Revenue Collected</div><div class="kpi-value">$${fmt(totalRevenue)}</div><div class="kpi-sub">$${fmt(pending)} pending</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Win Rate</div><div class="kpi-value">${winRate}%</div><div class="kpi-sub">${won} won · ${lost} lost</div></div>
+    <div class="kpi kpi-purple"><div class="kpi-label">Subcontractors</div><div class="kpi-value">${S.subs.length}</div><div class="kpi-sub">${S.subs.filter(s=>s.status==='active').length} active</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Upcoming Deadlines</div>
+      ${deadlines.length===0?'<div class="empty-state" style="padding:20px"><span class="empty-icon" style="font-size:24px">📅</span><div class="empty-sub">No upcoming deadlines</div></div>':
+        deadlines.map(d=>`<div class="deadline-item"><div class="deadline-name">${esc(trunc(d.title||'',50))}</div><span class="deadline-days ${d.days<=3?'deadline-urgent':d.days<=7?'deadline-soon':'deadline-ok'}">${d.days}d</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="card-title">Recent Activity</div>
+      ${S.activity.length===0?'<div class="empty-state" style="padding:20px"><span class="empty-icon" style="font-size:24px">📝</span><div class="empty-sub">No activity yet</div></div>':
+        S.activity.slice(0,8).map(a=>`<div class="activity-item"><div class="activity-dot" style="background:${a.color}"></div><div><div class="activity-text">${esc(a.text)}</div><div class="activity-time">${timeAgo(a.time)}</div></div></div>`).join('')}
+    </div>
+  </div>
+  <div class="grid3" style="margin-top:16px">
+    <div class="card">
+      <div class="card-title">Pipeline by Stage</div>
+      ${['pursuing','watching','bidding','subbing','pass'].map(tag=>{const count=Object.values(S.pipeline).filter(p=>p.tag===tag).length;return`<div class="fin-row"><span class="fin-label"><span class="badge badge-${tag}">${TAG_LABELS[tag]}</span></span><span class="mono muted">${count}</span></div>`;}).join('')}
+    </div>
+    <div class="card">
+      <div class="card-title">Invoice Summary</div>
+      ${[['Paid','paid','fin-positive'],['Pending','pending','fin-neutral'],['Overdue','overdue','fin-negative']].map(([l,s,cls])=>{const amt=S.invoices.filter(i=>i.status===s).reduce((a,b)=>a+parseFloat(b.amount||0),0);return`<div class="fin-row"><span class="fin-label">${l}</span><span class="fin-amount ${cls}">$${fmt(amt)}</span></div>`;}).join('')}
+    </div>
+    <div class="card">
+      <div class="card-title">Quick Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-ghost" onclick="nav('search')" style="justify-content:flex-start">🔍 Search Opportunities</button>
+        <button class="btn btn-ghost" onclick="openSubModal()" style="justify-content:flex-start">👷 Add Subcontractor</button>
+        <button class="btn btn-ghost" onclick="openInvoiceModal()" style="justify-content:flex-start">📄 New Invoice</button>
+        <button class="btn btn-ghost" onclick="openWLModal()" style="justify-content:flex-start">🏆 Log Win/Loss</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ══ SEARCH ════════════════════════════════════════════════════════════════════
+function renderSearch(c, ta) {
+  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
+  ta.innerHTML = `<span class="mono muted" style="font-size:11px">${samKey?'SAM.gov Connected ✓':'Add SAM key in Settings'}</span>`;
+  c.innerHTML = `
+  <div class="search-hero-inner">
+    <div class="ai-label">Natural Language Search <span class="ai-badge">AI Powered</span></div>
+    <div class="search-row">
+      <textarea class="search-ta" id="aiQuery" rows="1" placeholder="e.g. facilities management in Pennsylvania for small businesses…" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doSearch()}"></textarea>
+      <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">Search →</button>
+    </div>
+    <div class="chips">
+      <span class="chip" onclick="setQ(this)">project management services PA</span>
+      <span class="chip" onclick="setQ(this)">facilities maintenance federal</span>
+      <span class="chip" onclick="setQ(this)">construction trades northeast small business</span>
+      <span class="chip" onclick="setQ(this)">IT support services veteran owned</span>
+      <span class="chip" onclick="setQ(this)">sources sought management consulting</span>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <select class="filter-sel" id="fNotice"><option value="">All Types</option><option value="o">Sources Sought</option><option value="p">Pre-Solicitation</option><option value="k">Combined Synopsis</option><option value="r">RFP</option><option value="a">Award</option></select>
+    <select class="filter-sel" id="fSetAside"><option value="">All Set-Asides</option><option value="SBA">Small Business</option><option value="8A">8(a)</option><option value="HZC">HUBZone</option><option value="WOSB">Women-Owned SB</option><option value="SDVOSB">Service-Disabled Veteran</option></select>
+    <select class="filter-sel" id="fState"><option value="">All States</option><option value="PA">Pennsylvania</option><option value="NJ">New Jersey</option><option value="NY">New York</option><option value="VA">Virginia</option><option value="MD">Maryland</option><option value="DC">DC</option></select>
+    <select class="filter-sel" id="fLimit"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option></select>
+  </div>
+  <div id="searchResults"><div class="empty-state"><span class="empty-icon">🌲</span><div class="empty-title">Ready to Hunt</div><div class="empty-sub">Enter a search query above. AI interprets it and pulls live SAM.gov opportunities.</div></div></div>
+  <div id="searchPag" style="display:none;justify-content:center;align-items:center;gap:16px;padding:24px 0">
+    <button class="btn btn-ghost btn-sm" id="prevBtn" onclick="changePage(-1)">← Prev</button>
+    <span class="mono muted" id="pageInfo"></span>
+    <button class="btn btn-ghost btn-sm" id="nextBtn" onclick="changePage(1)">Next →</button>
+  </div>`;
+}
+
+async function doSearch() {
+  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
+  if (!samKey) { toast('Add your SAM.gov API key in Settings first', true); nav('settings'); return; }
+  const q = document.getElementById('aiQuery')?.value?.trim();
+  if (!q) return;
+  searchOffset = 0;
+  const btn = document.getElementById('searchBtn');
+  if (btn) btn.disabled = true;
+  showSearchSpinner('Asking AI to interpret your search…');
+  try {
+    const aiR = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000,
+        messages:[{role:'user',content:`Convert this government contract search to SAM.gov API params. Reply ONLY with JSON, no markdown:\n{"keywords":"2-4 search words","naicsCode":"6-digit or empty","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"one sentence"}\n\nQuery: "${q}"`}]
+      })
+    });
+    const ad = await aiR.json();
+    let params = {};
+    try { params = JSON.parse(ad.content[0].text.replace(/```json|```/g,'').trim()); } catch(e) { params = {keywords:q.split(' ').slice(0,3).join(' ')}; }
+    lastKeywords = params.keywords || q;
+    showSearchSpinner(`Fetching from SAM.gov: "${lastKeywords}"…`);
+    await fetchSAM(params, 0);
+  } catch(e) { showSearchErr(`Search failed: ${e.message}`); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+async function fetchSAM(params, offset) {
+  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
+  const limit = parseInt(document.getElementById('fLimit')?.value||25);
+  searchLimit = limit;
+  const p = new URLSearchParams({ api_key:samKey, limit, offset, postedFrom:postedFrom() });
+  if (params.keywords) p.set('q', params.keywords);
+  if (params.naicsCode) p.set('naicsCode', params.naicsCode);
+  const fN = document.getElementById('fNotice')?.value||params.noticeType;
+  const fS = document.getElementById('fSetAside')?.value||params.setAside;
+  const fSt = document.getElementById('fState')?.value||params.state;
+  if (fN) p.set('noticeType', fN);
+  if (fS) p.set('typeOfSetAside', fS);
+  if (fSt) p.set('placeOfPerformanceState', fSt);
+  try {
+    const res = await fetch(`https://api.sam.gov/opportunities/v2/search?${p}`);
+    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e?.description||e?.message||`HTTP ${res.status}`); }
+    const data = await res.json();
+    searchTotal = data.totalRecords||0;
+    searchOffset = offset;
+    renderSearchResults(data.opportunitiesData||[], params.explanation||'');
+  } catch(e) { showSearchErr(`SAM.gov error: ${e.message}`); }
+}
+
+function renderSearchResults(opps, explanation) {
+  const el = document.getElementById('searchResults');
+  const pag = document.getElementById('searchPag');
+  if (!el) return;
+  if (opps.length===0) { el.innerHTML=`<div class="empty-state"><span class="empty-icon">🔍</span><div class="empty-title">No Results</div><div class="empty-sub">Try broader terms.</div></div>`; if(pag)pag.style.display='none'; return; }
+  el.innerHTML = `<div class="mono muted" style="margin-bottom:14px;font-size:11px">${searchTotal.toLocaleString()} opportunities${explanation?' — '+esc(explanation):''}</div>` +
+    opps.map((o,i) => {
+      const type=(o.type||'').toLowerCase();
+      const pid=o.noticeId||`opp${i}`;
+      const tagged=S.pipeline[pid]?.tag||'';
+      const agency=trunc(o.fullParentPathName||o.departmentName||'—',45);
+      const deadline=o.responseDeadLine||'';
+      const urgent=isUrgent(deadline);
+      const url=o.uiLink||`https://sam.gov/opp/${o.noticeId}/view`;
+      return `<div class="opp-card ${tagged?'tagged-'+tagged:''} fade-in" style="animation-delay:${i*0.025}s" id="oc-${pid}">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+          <div class="opp-title">${esc(o.title||'Untitled')}</div>
+          <div style="display:flex;gap:6px;flex-shrink:0"><span class="badge ${NOTICE_BADGE[type]||'badge-default'}">${NOTICE_LABELS[type]||o.type||'Notice'}</span>${tagged?`<span class="badge badge-${tagged}">${TAG_LABELS[tagged]}</span>`:''}</div>
+        </div>
+        <div class="opp-meta">
+          <div><div class="meta-k">Agency</div><div class="meta-v">${esc(agency)}</div></div>
+          <div><div class="meta-k">NAICS</div><div class="meta-v">${o.naicsCode||'—'}</div></div>
+          <div><div class="meta-k">Sol #</div><div class="meta-v">${trunc(o.solicitationNumber||'—',20)}</div></div>
+          <div><div class="meta-k">Posted</div><div class="meta-v">${fmtDate(o.postedDate)}</div></div>
+        </div>
+        <div class="ai-sum" id="sum-${pid}"><div class="ai-sum-label">AI Summary</div><span style="animation:pulse 1s infinite;display:inline-block">●</span> Generating…</div>
+        <div class="opp-bottom">
+          <span class="mono" style="font-size:11px;color:${urgent?'var(--red2)':'var(--mist)'}">${deadline?`⏱ Due: ${fmtDate(deadline)}${urgent?' — URGENT':''}`:(`Archive: `+fmtDate(o.archiveDate))}</span>
+          <div style="display:flex;gap:7px;align-items:center">
+            <select class="tag-sel" onchange="tagOpp('${pid}',this.value,${JSON.stringify(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url}))})">
+              <option value="">+ Pipeline</option>
+              ${Object.entries(TAG_LABELS).map(([vv,l])=>`<option value="${vv}" ${tagged===vv?'selected':''}>${l}</option>`).join('')}
+            </select>
+            <a class="btn btn-ghost btn-xs" href="${url}" target="_blank">View →</a>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  if (pag) {
+    const total=Math.ceil(searchTotal/searchLimit), cur=Math.floor(searchOffset/searchLimit)+1;
+    pag.style.display=total>1?'flex':'none';
+    const pi=document.getElementById('pageInfo'); if(pi)pi.textContent=`Page ${cur} of ${total}`;
+    const prev=document.getElementById('prevBtn'), next=document.getElementById('nextBtn');
+    if(prev)prev.disabled=cur<=1; if(next)next.disabled=cur>=total;
+  }
+  opps.forEach((o,i) => genSummary(o.noticeId||`opp${i}`, o));
+}
+
+async function genSummary(pid, o) {
+  const el = document.getElementById(`sum-${pid}`);
+  if (!el) return;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000,
+        messages:[{role:'user',content:`1-2 sentences: summarize this federal contract opportunity for a small business prime contractor who manages subcontractors. Be direct about fit and required action.\n\nTitle: ${o.title}\nAgency: ${o.fullParentPathName||o.departmentName}\nNAICS: ${o.naicsCode}\nType: ${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc: ${trunc(o.description||'',500)}\n\nOnly the summary. No labels.`}]
+      })
+    });
+    const d=await r.json();
+    if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div>${esc(d.content?.[0]?.text||'Unavailable')}`;
+  } catch(e) { if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div><span class="muted" style="font-size:11px">Unavailable</span>`; }
+}
+
+async function tagOpp(pid, tag, metaJson) {
+  const meta = JSON.parse(metaJson);
+  if (!tag) { delete S.pipeline[pid]; logActivity(`Removed opportunity from pipeline`,'var(--mist)'); }
+  else {
+    S.pipeline[pid] = { tag, ...meta };
+    logActivity(`Tagged "${trunc(meta.title,40)}" as ${TAG_LABELS[tag]}`, tag==='pursuing'?'var(--green2)':tag==='bidding'?'var(--amber2)':'var(--blue2)');
+    toast(`Added to ${TAG_LABELS[tag]} ✓`);
+  }
+  updateBadges();
+  await save('Pipeline');
+  const card=document.getElementById(`oc-${pid}`);
+  if(card){
+    card.className=card.className.replace(/tagged-\w+/g,'').trim();
+    if(tag)card.classList.add(`tagged-${tag}`);
+    const bw=card.querySelector('[style*="flex-shrink:0"]');
+    if(bw){bw.querySelectorAll('[class*="badge-pursuing"],[class*="badge-watching"],[class*="badge-bidding"],[class*="badge-subbing"],[class*="badge-pass"]').forEach(b=>b.remove());if(tag){const b=document.createElement('span');b.className=`badge badge-${tag}`;b.textContent=TAG_LABELS[tag];bw.appendChild(b);}}
+  }
+}
+
+async function changePage(dir) {
+  const newOff=searchOffset+dir*searchLimit;
+  if(newOff<0||newOff>=searchTotal)return;
+  showSearchSpinner('Loading…');
+  await fetchSAM({keywords:lastKeywords},newOff);
+}
+
+function showSearchSpinner(msg) {
+  const el=document.getElementById('searchResults');
+  if(el)el.innerHTML=`<div class="empty-state"><div class="spinner" style="margin-bottom:16px"></div><div class="empty-sub">${esc(msg)}</div></div>`;
+  const pag=document.getElementById('searchPag');if(pag)pag.style.display='none';
+}
+function showSearchErr(msg) {
+  const el=document.getElementById('searchResults');
+  if(el)el.innerHTML=`<div style="background:rgba(230,57,70,0.07);border:1px solid rgba(230,57,70,0.2);border-radius:8px;padding:16px 20px;font-family:'DM Mono',monospace;font-size:12px;color:var(--red2);line-height:1.6;white-space:pre-line">${esc(msg)}</div>`;
+}
+
+// ══ PIPELINE ══════════════════════════════════════════════════════════════════
+function renderPipeline(c, ta) {
+  if(!c)c=document.getElementById('content');
+  if(!ta)ta=document.getElementById('topbarActions');
+  const lanes=['pursuing','watching','bidding','subbing','pass'];
+  const counts={};lanes.forEach(l=>counts[l]=Object.values(S.pipeline).filter(p=>p.tag===l).length);
+  const total=Object.keys(S.pipeline).length;
+  c.innerHTML=`
+  <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div class="kpi kpi-amber" style="flex:1;min-width:130px"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi kpi-green" style="flex:1;min-width:130px"><div class="kpi-label">Pursuing</div><div class="kpi-value">${counts.pursuing||0}</div></div>
+    <div class="kpi kpi-blue" style="flex:1;min-width:130px"><div class="kpi-label">Bidding</div><div class="kpi-value">${counts.bidding||0}</div></div>
+    <div class="kpi kpi-purple" style="flex:1;min-width:130px"><div class="kpi-label">Subbing</div><div class="kpi-value">${counts.subbing||0}</div></div>
+  </div>
+  <div class="kanban-wrap"><div class="kanban">
+    ${lanes.map(lane=>`
+    <div class="lane lane-${lane}" ondragover="event.preventDefault()" ondrop="dropCard(event,'${lane}')">
+      <div class="lane-h"><span class="lane-title">${TAG_LABELS[lane]}</span><span class="lane-count">${counts[lane]||0}</span></div>
+      <div id="lc-${lane}">${Object.entries(S.pipeline).filter(([,p])=>p.tag===lane).map(([pid,p])=>pipeCard(pid,p)).join('')||'<div class="empty-lane">Drop here</div>'}</div>
+    </div>`).join('')}
+  </div></div>`;
+}
+
+function pipeCard(pid, p) {
+  const dl=p.deadline?`<div class="pipe-meta">Due <span style="color:${isUrgent(p.deadline)?'var(--red2)':'var(--cream)'}">${fmtDate(p.deadline)}</span></div>`:'';
+  return `<div class="pipe-card" draggable="true" ondragstart="dragPid='${pid}';event.dataTransfer.setData('text/plain','${pid}')">
+    <div class="pipe-title">${esc(trunc(p.title||'',65))}</div>
+    <div class="pipe-meta">${esc(trunc(p.agency||'',40))}</div>
+    ${p.naics?`<div class="pipe-meta">NAICS <span style="color:var(--cream)">${p.naics}</span></div>`:''}
+    ${dl}
+    <div class="pipe-actions">
+      <select class="move-sel" onchange="movePipe('${pid}',this.value)">
+        ${Object.entries(TAG_LABELS).map(([vv,l])=>`<option value="${vv}" ${vv===p.tag?'selected':''}>${l}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:4px">
+        ${p.url?`<a class="btn btn-ghost btn-xs" href="${p.url}" target="_blank">View</a>`:''}
+        <button class="rm-btn" onclick="removePipe('${pid}')">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function dropCard(e, newTag) {
+  e.preventDefault();
+  const pid=e.dataTransfer.getData('text/plain')||dragPid;
+  if(pid&&S.pipeline[pid]){S.pipeline[pid].tag=newTag;logActivity(`Moved "${trunc(S.pipeline[pid].title,30)}" to ${TAG_LABELS[newTag]}`,'var(--amber)');await save('Pipeline');renderPipeline();}
+}
+async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();toast(`Moved to ${TAG_LABELS[tag]} ✓`);}}
+async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');renderPipeline();}
+
+// ══ SUBCONTRACTORS ════════════════════════════════════════════════════════════
+function renderSubs(c, ta) {
+  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openSubModal()">+ Add Subcontractor</button>`;
+  if(S.subs.length===0){c.innerHTML=`<div class="empty-state"><span class="empty-icon">👷</span><div class="empty-title">No Subcontractors Yet</div><div class="empty-sub">Add your first subcontractor to build your team roster.</div></div>`;return;}
+  c.innerHTML=`<div class="sub-grid">${S.subs.map((s,i)=>`
+    <div class="sub-card fade-in" style="animation-delay:${i*0.04}s">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div class="sub-name">${esc(s.name)}</div>
+        <span class="badge badge-${s.status==='active'?'active':'inactive'}">${s.status||'active'}</span>
+      </div>
+      <div class="sub-trade">${esc(s.trade||'General')}</div>
+      <div style="display:flex;gap:2px;margin-bottom:8px">${[1,2,3,4,5].map(n=>`<span class="star ${n<=(s.rating||0)?'':'empty'}">★</span>`).join('')}</div>
+      <div class="sub-detail">📞 <span>${esc(s.phone||'—')}</span></div>
+      <div class="sub-detail">✉️ <span>${esc(s.email||'—')}</span></div>
+      <div class="sub-detail">📋 NAICS <span>${esc(s.naics||'—')}</span></div>
+      <div class="sub-detail">🔒 SAM <span>${esc(s.samStatus||'—')}</span></div>
+      <div class="sub-detail">🛡️ Ins. Exp <span>${esc(s.insExpiry||'—')}</span></div>
+      ${s.notes?`<div style="margin-top:8px;font-size:12px;color:var(--mist);line-height:1.5">${esc(s.notes)}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:12px">
+        <button class="btn btn-ghost btn-xs" onclick="openSubModal(${i})">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteSub(${i})">Remove</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function openSubModal(idx){
+  const s=idx!==undefined?S.subs[idx]:{};
+  openModal(idx!==undefined?'Edit Subcontractor':'Add Subcontractor',`
+    <div class="form-row"><div class="form-group"><label class="form-label">Company Name</label><input class="form-input" id="sName" value="${esc(s.name||'')}" placeholder="ABC Contracting LLC"></div>
+    <div class="form-group"><label class="form-label">Trade / Specialty</label><input class="form-input" id="sTrade" value="${esc(s.trade||'')}" placeholder="Electrical, HVAC, IT…"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="sPhone" value="${esc(s.phone||'')}"></div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="sEmail" value="${esc(s.email||'')}"></div></div>
+    <div class="form-row3"><div class="form-group"><label class="form-label">NAICS Code</label><input class="form-input" id="sNaics" value="${esc(s.naics||'')}"></div>
+    <div class="form-group"><label class="form-label">SAM Status</label><select class="form-select" id="sSam"><option ${(s.samStatus||'')==='Active'?'selected':''}>Active</option><option ${(s.samStatus||'')==='Expired'?'selected':''}>Expired</option><option ${(s.samStatus||'')==='Not Registered'?'selected':''}>Not Registered</option></select></div>
+    <div class="form-group"><label class="form-label">Insurance Expiry</label><input class="form-input" type="date" id="sIns" value="${s.insExpiry||''}"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Status</label><select class="form-select" id="sStatus"><option value="active" ${(s.status||'active')==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+    <div class="form-group"><label class="form-label">Rating (1-5)</label><input class="form-input" type="number" min="1" max="5" id="sRating" value="${s.rating||''}"></div></div>
+    <div class="form-group"><label class="form-label">Notes / Certifications</label><textarea class="form-textarea" id="sNotes">${esc(s.notes||'')}</textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveSub(${idx})">Save</button>`);
+}
+
+async function saveSub(idx){
+  const sub={name:v('sName'),trade:v('sTrade'),phone:v('sPhone'),email:v('sEmail'),naics:v('sNaics'),samStatus:v('sSam'),insExpiry:v('sIns'),status:v('sStatus'),rating:parseInt(v('sRating'))||0,notes:v('sNotes')};
+  if(!sub.name){toast('Name required',true);return;}
+  if(idx!==undefined)S.subs[idx]=sub;else S.subs.push(sub);
+  logActivity(`${idx!==undefined?'Updated':'Added'} sub: ${sub.name}`,'var(--green2)');
+  await save('Subcontractors');closeModal();renderSubs(document.getElementById('content'),document.getElementById('topbarActions'));toast('Subcontractor saved ✓');
+}
+async function deleteSub(i){if(!confirm(`Remove ${S.subs[i].name}?`))return;logActivity(`Removed sub: ${S.subs[i].name}`,'var(--mist)');S.subs.splice(i,1);await save('Subcontractors');renderSubs(document.getElementById('content'),document.getElementById('topbarActions'));toast('Removed');}
+
+// ══ PRICING ═══════════════════════════════════════════════════════════════════
+function renderPricing(c, ta) {
+  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openQuoteModal()">+ New Quote</button>`;
+  if(S.quotes.length===0){c.innerHTML=`<div class="empty-state"><span class="empty-icon">💰</span><div class="empty-title">No Quotes Yet</div><div class="empty-sub">Build a quote for any opportunity to calculate your margin before bidding.</div></div>`;return;}
+  c.innerHTML=S.quotes.map((q,i)=>{
+    const subCost=(q.lines||[]).reduce((a,l)=>a+parseFloat(l.total||0),0);
+    const margin=parseFloat(q.marginPct||S.settings.margin||15)/100;
+    const price=subCost/(1-margin);
+    const profit=price-subCost;
+    const pct=Math.round(margin*100);
+    return `<div class="card fade-in" style="margin-bottom:14px">
+      <div class="section-header">
+        <div><div class="section-title" style="font-size:18px">${esc(q.name||'Untitled Quote')}</div><div class="mono muted" style="font-size:11px">${esc(q.opportunity||'')} · ${fmtDate(q.created)}</div></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="openQuoteModal(${i})">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteQuote(${i})">Delete</button></div>
+      </div>
+      <div class="grid3" style="margin-bottom:14px">
+        <div class="kpi kpi-amber" style="padding:12px 16px"><div class="kpi-label">Sub Cost</div><div class="kpi-value" style="font-size:24px">$${fmt(subCost)}</div></div>
+        <div class="kpi kpi-green" style="padding:12px 16px"><div class="kpi-label">Bid Price</div><div class="kpi-value" style="font-size:24px">$${fmt(price)}</div></div>
+        <div class="kpi kpi-purple" style="padding:12px 16px"><div class="kpi-label">Profit (${pct}%)</div><div class="kpi-value" style="font-size:24px">$${fmt(profit)}</div></div>
+      </div>
+      <div class="margin-bar"><div class="margin-fill" style="width:${Math.min(pct*3,100)}%"></div></div>
+      ${(q.lines||[]).length>0?`<div class="divider"></div><table class="table"><thead><tr><th>Description</th><th>Sub</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody>${(q.lines||[]).map(l=>`<tr><td>${esc(l.desc||'')}</td><td class="mono muted" style="font-size:11px">${esc(l.sub||'')}</td><td class="mono" style="text-align:right">${l.qty||1}</td><td class="mono" style="text-align:right">$${fmt(l.rate||0)}</td><td class="mono amber" style="text-align:right">$${fmt(l.total||0)}</td></tr>`).join('')}</tbody></table>`:''}
+    </div>`;
+  }).join('');
+}
+
+function openQuoteModal(idx){
+  const q=idx!==undefined?S.quotes[idx]:{lines:[]};
+  const subNames=S.subs.map(s=>s.name);
+  openModal(idx!==undefined?'Edit Quote':'New Quote',
+    `<div class="form-row"><div class="form-group"><label class="form-label">Quote Name</label><input class="form-input" id="qName" value="${esc(q.name||'')}"></div>
+    <div class="form-group"><label class="form-label">Opportunity</label><input class="form-input" id="qOpp" value="${esc(q.opportunity||'')}"></div></div>
+    <div class="form-group"><label class="form-label">Margin %</label><input class="form-input" type="number" id="qMargin" value="${q.marginPct||S.settings.margin||15}" style="width:100px"></div>
+    <div class="divider"></div>
+    <div class="form-label" style="margin-bottom:10px">Line Items</div>
+    <div id="qLines">${(q.lines||[]).map((l,li)=>quoteLineHtml(li,l,subNames)).join('')}</div>
+    <button class="btn btn-ghost btn-sm" onclick="addQL(${JSON.stringify(JSON.stringify(subNames))})">+ Add Line</button>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveQuote(${idx})">Save Quote</button>`);
+}
+
+function quoteLineHtml(li,l={},subs=[]){
+  return `<div class="form-row3" id="ql-${li}" style="align-items:end;margin-bottom:8px">
+    <input class="form-input" placeholder="Description" value="${esc(l.desc||'')}" oninput="calcLine(${li})">
+    <select class="form-select" oninput="calcLine(${li})"><option value="">No Sub</option>${subs.map(s=>`<option ${l.sub===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
+    <div style="display:flex;gap:5px;align-items:center">
+      <input class="form-input" type="number" placeholder="Qty" value="${l.qty||1}" style="width:55px" oninput="calcLine(${li})">
+      <input class="form-input" type="number" placeholder="Rate $" value="${l.rate||''}" style="width:85px" oninput="calcLine(${li})">
+      <span class="mono amber" id="lt-${li}" style="width:75px;text-align:right;font-size:12px">$${fmt(l.total||0)}</span>
+      <button class="btn btn-danger btn-xs" onclick="document.getElementById('ql-${li}').remove()">✕</button>
+    </div>
+  </div>`;
+}
+
+function calcLine(li){const row=document.getElementById(`ql-${li}`);if(!row)return;const ins=row.querySelectorAll('input[type=number]');const t=document.getElementById(`lt-${li}`);if(t)t.textContent='$'+fmt((parseFloat(ins[0]?.value)||1)*(parseFloat(ins[1]?.value)||0));}
+function addQL(snj){const subs=JSON.parse(snj);const c=document.getElementById('qLines');const li=c.children.length;const d=document.createElement('div');d.innerHTML=quoteLineHtml(li,{},subs);c.appendChild(d.firstChild);}
+
+async function saveQuote(idx){
+  const name=v('qName');if(!name){toast('Name required',true);return;}
+  const lineEls=document.getElementById('qLines').children;
+  const lines=Array.from(lineEls).map(row=>{const ins=row.querySelectorAll('input');const sel=row.querySelector('select');const qty=parseFloat(ins[1]?.value)||1;const rate=parseFloat(ins[2]?.value)||0;return{desc:ins[0]?.value||'',sub:sel?.value||'',qty,rate,total:qty*rate};});
+  const q={name,opportunity:v('qOpp'),marginPct:parseFloat(v('qMargin'))||15,lines,created:S.quotes[idx]?.created||new Date().toISOString()};
+  if(idx!==undefined)S.quotes[idx]=q;else S.quotes.push(q);
+  logActivity(`${idx!==undefined?'Updated':'Created'} quote: ${name}`,'var(--gold2)');
+  await save('Quotes');closeModal();renderPricing(document.getElementById('content'),document.getElementById('topbarActions'));toast('Quote saved ✓');
+}
+async function deleteQuote(i){if(!confirm('Delete?'))return;S.quotes.splice(i,1);await save('Quotes');renderPricing(document.getElementById('content'),document.getElementById('topbarActions'));}
+
+// ══ FINANCIALS ════════════════════════════════════════════════════════════════
+function renderFinancials(c,ta){
+  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openInvoiceModal()">+ New Invoice</button>`;
+  const paid=S.invoices.filter(i=>i.status==='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const pending=S.invoices.filter(i=>i.status==='pending').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const overdue=S.invoices.filter(i=>i.status==='overdue').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const costs=S.invoices.filter(i=>i.type==='expense').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const net=paid-costs;
+  c.innerHTML=`
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="kpi kpi-green"><div class="kpi-label">Revenue Collected</div><div class="kpi-value">$${fmt(paid)}</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label">Pending</div><div class="kpi-value">$${fmt(pending)}</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Sub Costs</div><div class="kpi-value">$${fmt(costs)}</div></div>
+    <div class="kpi ${net>=0?'kpi-green':'kpi-purple'}"><div class="kpi-label">Net Profit</div><div class="kpi-value">$${fmt(Math.abs(net))}</div><div class="kpi-sub">${net<0?'deficit':''}</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="section-header"><div class="section-title" style="font-size:18px">Invoices</div></div>
+      ${S.invoices.length===0?'<div class="empty-state" style="padding:30px"><span class="empty-icon" style="font-size:28px">📄</span><div class="empty-sub">No invoices yet</div></div>':
+      `<table class="table"><thead><tr><th>Description</th><th>Amount</th><th>Type</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
+      ${S.invoices.map((inv,i)=>`<tr><td>${esc(trunc(inv.desc||'',35))}</td><td class="mono amber">$${fmt(inv.amount||0)}</td><td class="mono muted" style="font-size:11px">${inv.type||'income'}</td><td><span class="inv-status inv-${inv.status||'pending'}">${inv.status||'pending'}</span></td><td class="mono muted" style="font-size:11px">${fmtDate(inv.date)}</td><td><button class="rm-btn" onclick="deleteInv(${i})">✕</button></td></tr>`).join('')}</tbody></table>`}
+    </div>
+    <div class="card">
+      <div class="card-title">P&L Summary</div>
+      <div class="fin-row"><span class="fin-label">Revenue Collected</span><span class="fin-amount fin-positive">$${fmt(paid)}</span></div>
+      <div class="fin-row"><span class="fin-label">Pending Revenue</span><span class="fin-amount fin-neutral">$${fmt(pending)}</span></div>
+      <div class="fin-row"><span class="fin-label">Overdue</span><span class="fin-amount fin-negative">$${fmt(overdue)}</span></div>
+      <div class="fin-row"><span class="fin-label">Sub Costs</span><span class="fin-amount fin-negative">-$${fmt(costs)}</span></div>
+      <div class="divider"></div>
+      <div class="fin-row"><span class="fin-label" style="font-weight:700">Net Profit</span><span class="fin-amount ${net>=0?'fin-positive':'fin-negative'}">$${fmt(Math.abs(net))}</span></div>
+      ${paid>0?`<div class="margin-bar" style="margin-top:12px"><div class="margin-fill" style="width:${Math.min(Math.max(net/paid*100,0),100)}%"></div></div><div class="mono muted" style="font-size:10px;margin-top:4px">${Math.round(net/paid*100)}% net margin</div>`:''}
+    </div>
+  </div>`;
+}
+
+function openInvoiceModal(){
+  openModal('New Invoice',`
+    <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="iDesc" placeholder="Contract payment — Agency XYZ"></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Amount ($)</label><input class="form-input" type="number" id="iAmt"></div>
+    <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="iDate" value="${new Date().toISOString().split('T')[0]}"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="iType"><option value="income">Income (gov payment)</option><option value="expense">Expense (sub payment)</option></select></div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="iStatus"><option value="pending">Pending</option><option value="paid">Paid</option><option value="overdue">Overdue</option></select></div></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveInv()">Save</button>`);
+}
+
+async function saveInv(){
+  const inv={desc:v('iDesc'),amount:parseFloat(v('iAmt'))||0,date:v('iDate'),type:v('iType'),status:v('iStatus')};
+  if(!inv.desc){toast('Description required',true);return;}
+  S.invoices.push(inv);logActivity(`Invoice: ${inv.desc} $${fmt(inv.amount)}`,'var(--green2)');
+  await save('Invoices');closeModal();renderFinancials(document.getElementById('content'),document.getElementById('topbarActions'));toast('Invoice saved ✓');
+}
+async function deleteInv(i){S.invoices.splice(i,1);await save('Invoices');renderFinancials(document.getElementById('content'),document.getElementById('topbarActions'));}
+
+// ══ AGENCIES ══════════════════════════════════════════════════════════════════
+function renderAgencies(c,ta){
+  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openAgencyModal()">+ Add Agency</button>`;
+  if(S.agencies.length===0){c.innerHTML=`<div class="empty-state"><span class="empty-icon">🏛️</span><div class="empty-title">No Agencies Tracked</div><div class="empty-sub">Track relationships with contracting officers and agency contacts.</div></div>`;return;}
+  c.innerHTML=`<div class="sub-grid">${S.agencies.map((a,i)=>`
+    <div class="sub-card fade-in">
+      <div class="sub-name">${esc(a.name)}</div>
+      <div class="sub-trade">${esc(a.abbr||'')}</div>
+      ${(a.contacts||[]).map(ct=>`<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px">
+        <div style="font-size:13px;font-weight:600;color:var(--cream);margin-bottom:2px">${esc(ct.name||'')}</div>
+        <div class="sub-detail" style="margin-bottom:4px">${esc(ct.title||'')}</div>
+        <div class="sub-detail">✉️ <span>${esc(ct.email||'—')}</span></div>
+        <div class="sub-detail">📞 <span>${esc(ct.phone||'—')}</span></div>
+      </div>`).join('')}
+      ${a.notes?`<div style="margin-top:8px;font-size:12px;color:var(--mist);line-height:1.5;border-top:1px solid var(--border);padding-top:8px">${esc(a.notes)}</div>`:''}
+      <div class="sub-detail" style="margin-top:8px">Last Contact <span>${fmtDate(a.lastContact)||'—'}</span></div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-ghost btn-xs" onclick="openAgencyModal(${i})">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteAgency(${i})">Remove</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function openAgencyModal(idx){
+  const a=idx!==undefined?S.agencies[idx]:{};const ct=(a.contacts||[{}])[0]||{};
+  openModal(idx!==undefined?'Edit Agency':'Add Agency',`
+    <div class="form-row"><div class="form-group"><label class="form-label">Agency Name</label><input class="form-input" id="aName" value="${esc(a.name||'')}"></div>
+    <div class="form-group"><label class="form-label">Abbreviation</label><input class="form-input" id="aAbbr" value="${esc(a.abbr||'')}"></div></div>
+    <div class="divider"></div>
+    <div class="form-label" style="margin-bottom:10px">Primary Contact</div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Name</label><input class="form-input" id="ctName" value="${esc(ct.name||'')}"></div>
+    <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="ctTitle" value="${esc(ct.title||'')}"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ctEmail" value="${esc(ct.email||'')}"></div>
+    <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="ctPhone" value="${esc(ct.phone||'')}"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Last Contact Date</label><input class="form-input" type="date" id="aLastContact" value="${a.lastContact||''}"></div></div>
+    <div class="form-group"><label class="form-label">Notes / History</label><textarea class="form-textarea" id="aNotes">${esc(a.notes||'')}</textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveAgency(${idx})">Save</button>`);
+}
+
+async function saveAgency(idx){
+  const a={name:v('aName'),abbr:v('aAbbr'),lastContact:v('aLastContact'),notes:v('aNotes'),contacts:[{name:v('ctName'),title:v('ctTitle'),email:v('ctEmail'),phone:v('ctPhone')}]};
+  if(!a.name){toast('Name required',true);return;}
+  if(idx!==undefined)S.agencies[idx]=a;else S.agencies.push(a);
+  logActivity(`${idx!==undefined?'Updated':'Added'} agency: ${a.name}`,'var(--blue2)');
+  await save('Agencies');closeModal();renderAgencies(document.getElementById('content'),document.getElementById('topbarActions'));toast('Agency saved ✓');
+}
+async function deleteAgency(i){if(!confirm('Remove?'))return;S.agencies.splice(i,1);await save('Agencies');renderAgencies(document.getElementById('content'),document.getElementById('topbarActions'));}
+
+// ══ WIN/LOSS ══════════════════════════════════════════════════════════════════
+function renderWinLoss(c,ta){
+  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openWLModal()">+ Log Bid</button>`;
+  const won=S.winloss.filter(w=>w.outcome==='won').length;
+  const lost=S.winloss.filter(w=>w.outcome==='lost').length;
+  const total=won+lost;
+  const rate=total>0?Math.round(won/total*100):0;
+  const wonRev=S.winloss.filter(w=>w.outcome==='won').reduce((a,b)=>a+parseFloat(b.value||0),0);
+  c.innerHTML=`
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="kpi kpi-green"><div class="kpi-label">Won</div><div class="kpi-value">${won}</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label">Lost</div><div class="kpi-value">${lost}</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Win Rate</div><div class="kpi-value">${rate}%</div></div>
+    <div class="kpi kpi-purple"><div class="kpi-label">Revenue Won</div><div class="kpi-value">$${fmt(wonRev)}</div></div>
+  </div>
+  ${S.winloss.length===0?'<div class="empty-state"><span class="empty-icon">🏆</span><div class="empty-title">No Bids Logged Yet</div><div class="empty-sub">Track every bid — won or lost — to build your pattern recognition over time.</div></div>':
+  `<div class="card"><table class="table"><thead><tr><th>Opportunity</th><th>Agency</th><th>Value</th><th>Outcome</th><th>Reason</th><th>Date</th><th></th></tr></thead><tbody>
+  ${S.winloss.map((w,i)=>`<tr><td>${esc(trunc(w.name||'',40))}</td><td class="muted" style="font-size:12px">${esc(trunc(w.agency||'',30))}</td><td class="mono amber">$${fmt(w.value||0)}</td><td><span class="badge badge-${w.outcome==='won'?'won':'lost'}">${w.outcome}</span></td><td class="muted" style="font-size:12px">${esc(trunc(w.reason||'',35))}</td><td class="mono muted" style="font-size:11px">${fmtDate(w.date)}</td><td><button class="rm-btn" onclick="deleteWL(${i})">✕</button></td></tr>`).join('')}</tbody></table></div>`}`;
+}
+
+function openWLModal(){
+  openModal('Log Bid Outcome',`
+    <div class="form-group"><label class="form-label">Opportunity Name</label><input class="form-input" id="wName" placeholder="Facilities Management — VA Hospital"></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Agency</label><input class="form-input" id="wAgency"></div>
+    <div class="form-group"><label class="form-label">Contract Value ($)</label><input class="form-input" type="number" id="wValue"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Outcome</label><select class="form-select" id="wOutcome"><option value="won">Won</option><option value="lost">Lost</option></select></div>
+    <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="wDate" value="${new Date().toISOString().split('T')[0]}"></div></div>
+    <div class="form-group"><label class="form-label">Reason / Notes</label><textarea class="form-textarea" id="wReason" placeholder="Why did you win or lose? Price? Qualifications?"></textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveWL()">Save</button>`);
+}
+
+async function saveWL(){
+  const w={name:v('wName'),agency:v('wAgency'),value:parseFloat(v('wValue'))||0,outcome:v('wOutcome'),date:v('wDate'),reason:v('wReason')};
+  if(!w.name){toast('Name required',true);return;}
+  S.winloss.push(w);logActivity(`Logged ${w.outcome}: ${trunc(w.name,35)}`,w.outcome==='won'?'var(--green2)':'var(--red2)');
+  await save('WinLoss');closeModal();renderWinLoss(document.getElementById('content'),document.getElementById('topbarActions'));toast('Bid logged ✓');
+}
+async function deleteWL(i){S.winloss.splice(i,1);await save('WinLoss');renderWinLoss(document.getElementById('content'),document.getElementById('topbarActions'));}
+
+// ══ SETTINGS ══════════════════════════════════════════════════════════════════
+function renderSettings(c,ta){
+  const samKey=localStorage.getItem(SAM_KEY_STORE)||'';
+  c.innerHTML=`<div style="max-width:560px">
+    <div class="setting-group">
+      <div class="setting-group-title">Company Info</div>
+      <div class="form-group"><label class="form-label">Company Name</label><input class="form-input" id="setCo" value="${esc(S.settings.company||'Ironwood Solutions')}"></div>
+      <div class="form-group"><label class="form-label">Default Profit Margin %</label><input class="form-input" type="number" id="setMargin" value="${S.settings.margin||15}" style="width:100px"></div>
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Company Info</button>
+    </div>
+    <div class="setting-group">
+      <div class="setting-group-title">SAM.gov API Key</div>
+      <div style="font-size:13px;color:var(--mist);margin-bottom:12px;line-height:1.5">Required for live opportunity search. Free at <a href="https://sam.gov/profile/details" target="_blank">sam.gov → Account Settings</a>. Stored locally only — never sent to any server.</div>
+      <input class="form-input" type="password" id="setSam" value="${esc(samKey)}" placeholder="Paste SAM.gov API key…">
+      <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="saveSamKey()">Save Key</button>
+    </div>
+    <div class="setting-group">
+      <div class="setting-group-title">Google Sheets Connection</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border-radius:6px;margin-bottom:12px">
+        <div class="sync-dot live"></div>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">Connected to Ironwood ERP Database</span>
+      </div>
+      <div style="font-size:12px;color:var(--mist);margin-bottom:12px">Data syncs automatically on every save. Open this ERP on any device with the same URL and all your data will be there.</div>
+      <button class="btn btn-ghost btn-sm" onclick="loadFromSheet()">↻ Force Refresh from Sheet</button>
+    </div>
+    <div class="setting-group">
+      <div class="setting-group-title">GitHub Pages URL</div>
+      <div style="font-size:13px;color:var(--mist);line-height:1.6;margin-bottom:10px">Once you upload this file to GitHub, your ERP will be available at:<br><code style="font-family:'DM Mono',monospace;color:var(--amber2)">https://yourusername.github.io/ironwood-erp/ironwood-erp.html</code></div>
+      <div style="font-size:12px;color:var(--mist)">Bookmark that URL on every device for instant access.</div>
+    </div>
+  </div>`;
+}
+
+async function saveSettings(){
+  S.settings.company=v('setCo')||'Ironwood Solutions';
+  S.settings.margin=parseFloat(v('setMargin'))||15;
+  await save('Settings');toast('Settings saved ✓');
+  document.querySelector('.logo-mark').textContent=S.settings.company.split(' ')[0];
+}
+
+function saveSamKey(){
+  const k=v('setSam');
+  localStorage.setItem(SAM_KEY_STORE,k);
+  S.settings.samKey=k;
+  toast('SAM.gov key saved ✓');
+}
+
+// ══ MODAL ═════════════════════════════════════════════════════════════════════
+function openModal(title,body,footer){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalFooter').innerHTML=footer;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+
+// ══ HELPERS ═══════════════════════════════════════════════════════════════════
+function v(id){const el=document.getElementById(id);return el?el.value:'';}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function trunc(s,n){s=String(s||'');return s.length>n?s.slice(0,n)+'…':s;}
+function fmt(n){return parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtDate(s){if(!s)return'—';try{return new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}catch{return s;}}
+function isUrgent(s){if(!s)return false;const d=(new Date(s)-new Date())/86400000;return d>=0&&d<=7;}
+function postedFrom(){const d=new Date();d.setMonth(d.getMonth()-3);return`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;}
+function timeAgo(iso){const s=Math.floor((Date.now()-new Date(iso))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+function setQ(el){const ta=document.getElementById('aiQuery');if(ta){ta.value=el.textContent;autoResize(ta);}}
+function toast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ══ INIT ══════════════════════════════════════════════════════════════════════
+S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
+updateBadges();
+setSyncStatus('syncing','Loading…');
+loadFromSheet();
+</script>
+</body>
+</html>
