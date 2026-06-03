@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ironwood ERP — Seed Sample Data</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0e13;color:#f0e8d8;font-family:'Outfit',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#111520;border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:40px;max-width:520px;width:100%}
+h1{font-size:28px;font-weight:700;margin-bottom:6px;color:#e8a24a}
+.sub{font-family:'DM Mono',monospace;font-size:11px;color:#6b7a99;margin-bottom:28px;letter-spacing:0.1em;text-transform:uppercase}
+.info{font-size:13px;color:#6b7a99;line-height:1.6;margin-bottom:28px;padding:14px 16px;background:rgba(196,123,43,0.07);border-left:3px solid #c47b2b;border-radius:0 6px 6px 0}
+.btn{width:100%;padding:14px;background:#c47b2b;border:none;border-radius:8px;color:#0b0e13;font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.18s;margin-bottom:12px}
+.btn:hover{background:#e8a24a;transform:translateY(-1px)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:rgba(255,255,255,0.05);color:#6b7a99;border:1px solid rgba(255,255,255,0.07)}
+.btn-ghost:hover{background:rgba(255,255,255,0.08);color:#f0e8d8}
+.log{margin-top:20px;display:none}
+.log-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:#6b7a99;margin-bottom:10px}
+.log-item{font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;border-radius:4px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.log-item.ok{background:rgba(82,183,136,0.1);color:#52b788}
+.log-item.err{background:rgba(230,57,70,0.1);color:#e63946}
+.log-item.pending{background:rgba(196,123,43,0.08);color:#e8a24a}
+.progress{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-bottom:20px;overflow:hidden;display:none}
+.progress-fill{height:100%;background:#c47b2b;border-radius:2px;width:0;transition:width 0.3s}
+.done-box{display:none;background:rgba(82,183,136,0.08);border:1px solid rgba(82,183,136,0.2);border-radius:8px;padding:16px 20px;margin-top:16px;text-align:center}
+.done-icon{font-size:32px;margin-bottom:8px}
+.done-title{font-size:16px;font-weight:700;color:#52b788;margin-bottom:4px}
+.done-sub{font-size:13px;color:#6b7a99}
+a{color:#e8a24a;text-decoration:none}
+a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Sample Data Loader</h1>
+  <div class="sub">Ironwood Solutions ERP</div>
+  <div class="info">
+    This will populate your Google Sheet with realistic sample data — 7 pipeline opportunities, 7 subcontractors, 3 quotes, 11 invoices, 4 agencies, 5 win/loss records, and activity history.<br><br>
+    <strong style="color:#e8a24a">⚠️ This will overwrite any existing data in your Sheet.</strong> Only run this on a fresh ERP.
+  </div>
+  <div class="progress" id="progress"><div class="progress-fill" id="progressFill"></div></div>
+  <button class="btn" id="seedBtn" onclick="seedAll()">Load Sample Data →</button>
+  <a href="https://cheim-byte.github.io/ironwood-erp/ironwood-erp.html" target="_blank"><button class="btn btn-ghost">Open ERP ↗</button></a>
+  <div class="log" id="log">
+    <div class="log-title">Progress</div>
+    <div id="logItems"></div>
+  </div>
+  <div class="done-box" id="doneBox">
+    <div class="done-icon">✅</div>
+    <div class="done-title">Sample Data Loaded!</div>
+    <div class="done-sub">Open your ERP and hit <strong>↻ Refresh</strong> on the Dashboard to see everything.</div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbz_Y_0cMyGx7DgQvun-6tXIp0dnoEOHY-r5tBo4v2NoUFvvv3TqCEIE05baje-WrUTV/exec';
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
+const SECRET = 'ironwood2024erp';
+
+const SAMPLE = {
+  Pipeline: [
+    ['pid','tag','title','agency','naics','solNum','deadline','url'],
+    ['OPP-001','pursuing','Facilities Management Services — VAMC Philadelphia','Department of Veterans Affairs','561210','36C24424R0112','2026-07-15','https://sam.gov/opp/001/view'],
+    ['OPP-002','bidding','Janitorial and Custodial Services — Fort Dix','Department of the Army','561720','W911S224R0045','2026-06-28','https://sam.gov/opp/002/view'],
+    ['OPP-003','watching','Project Management Support Services — GSA Region 3','General Services Administration','541618','47PF0024R0033','2026-08-01','https://sam.gov/opp/003/view'],
+    ['OPP-004','watching','Grounds Maintenance — Naval Station Philadelphia','Department of the Navy','561730','N6247024R5501','2026-07-30','https://sam.gov/opp/004/view'],
+    ['OPP-005','subbing','HVAC Maintenance — Walter Reed Medical Center','Defense Health Agency','238220','HT001124R0029','2026-06-20','https://sam.gov/opp/005/view'],
+    ['OPP-006','pursuing','Administrative Support Services — SBA Philadelphia District','Small Business Administration','561110','SBAHQ24R0014','2026-07-22','https://sam.gov/opp/006/view'],
+    ['OPP-007','pass','IT Help Desk Services — IRS Philadelphia','Internal Revenue Service','541519','TIRNO24R00041','','https://sam.gov/opp/007/view'],
+  ],
+  Subcontractors: [
+    ['name','trade','phone','email','naics','samStatus','insExpiry','status','rating','notes'],
+    ['Keystone Electrical LLC','Electrical','570-555-0142','ops@keystoneelec.com','238210','Active','2026-12-31','active',5,'Licensed master electrician. Bonded up to $500K. E-Verify enrolled. 8(a) certified. Fast mobilization — 3 days notice.'],
+    ['Ridge & Valley HVAC Inc','HVAC / Mechanical','570-555-0198','bids@ridgevalleyhvac.com','238220','Active','2026-09-15','active',4,'Covers all of PA and NJ. Certified in commercial refrigeration. Has worked on federal buildings previously.'],
+    ['Pocono Grounds Services','Landscaping / Grounds','570-555-0231','schedule@poconogrounds.com','561730','Active','2026-11-30','active',5,'Year-round availability. Snow removal capable. Fleet of 6 trucks. Veteran-owned small business.'],
+    ['ClearPath Janitorial','Janitorial / Custodial','570-555-0319','admin@clearpathjanitorial.com','561720','Active','2026-10-01','active',4,'Bonded and insured. Background-checked staff. Experience with secure federal facilities.'],
+    ['Apex IT Solutions','IT Support / Help Desk','215-555-0477','contracts@apexitsolutions.com','541519','Active','2027-01-15','active',3,'Tier 1-2 help desk. Microsoft certified. Remote and on-site support. HUBZone certified.'],
+    ['Summit Admin Group','Administrative Support','484-555-0512','info@summitadmingroup.com','561110','Active','2026-08-31','active',4,'Admin staffing, data entry, office management. Women-owned small business (WOSB).'],
+    ['Iron Ridge Construction','General Construction','570-555-0088','pm@ironridgeconstruction.com','236220','Expired','2026-03-01','inactive',3,'Strong local crew — SAM registration expired. Follow up before using on any federal work.'],
+  ],
+  Quotes: [
+    ['name','opportunity','marginPct','created','lines'],
+    ['VA Facilities Quote','Facilities Management Services — VAMC Philadelphia',18,'2026-05-01T00:00:00Z','[{"desc":"Janitorial Services (monthly)","sub":"ClearPath Janitorial","qty":12,"rate":8500,"total":102000},{"desc":"Grounds Maintenance (monthly)","sub":"Pocono Grounds Services","qty":12,"rate":3200,"total":38400},{"desc":"HVAC Preventive Maintenance (quarterly)","sub":"Ridge & Valley HVAC Inc","qty":4,"rate":4800,"total":19200}]'],
+    ['Fort Dix Janitorial Quote','Janitorial and Custodial Services — Fort Dix',15,'2026-05-10T00:00:00Z','[{"desc":"Daily Janitorial — Admin Buildings","sub":"ClearPath Janitorial","qty":12,"rate":6200,"total":74400},{"desc":"Floor Care and Stripping (semi-annual)","sub":"ClearPath Janitorial","qty":2,"rate":3800,"total":7600}]'],
+    ['GSA PM Support Quote','Project Management Support — GSA Region 3',20,'2026-05-15T00:00:00Z','[{"desc":"Senior Project Manager (monthly)","sub":"Summit Admin Group","qty":12,"rate":9500,"total":114000},{"desc":"Admin Support Coordinator (monthly)","sub":"Summit Admin Group","qty":12,"rate":5200,"total":62400}]'],
+  ],
+  Invoices: [
+    ['desc','amount','date','type','status'],
+    ['Contract Payment — Q1 Admin Support (GSA Pilot)',18500,'2026-03-15','income','paid'],
+    ['Contract Payment — Q2 Admin Support (GSA Pilot)',18500,'2026-04-15','income','paid'],
+    ['Sub Payment — Summit Admin Group Q1',14800,'2026-03-20','expense','paid'],
+    ['Sub Payment — Summit Admin Group Q2',14800,'2026-04-20','expense','paid'],
+    ['Contract Payment — Grounds Maintenance March',4100,'2026-03-31','income','paid'],
+    ['Sub Payment — Pocono Grounds March',3200,'2026-04-05','expense','paid'],
+    ['Contract Payment — Grounds Maintenance April',4100,'2026-04-30','income','paid'],
+    ['Sub Payment — Pocono Grounds April',3200,'2026-05-05','expense','paid'],
+    ['Contract Payment — USPS Facilities Support Q1',28500,'2026-05-15','income','paid'],
+    ['Sub Payment — ClearPath Janitorial USPS Q1',19800,'2026-05-20','expense','paid'],
+    ['Contract Payment — Q3 Admin Support (GSA Pilot)',18500,'2026-07-15','income','pending'],
+    ['HVAC Emergency Repair Reimbursement',2800,'2026-05-20','income','pending'],
+    ['Sub Payment — Ridge & Valley HVAC Emergency',2200,'2026-05-22','expense','pending'],
+  ],
+  Agencies: [
+    ['name','abbr','lastContact','notes','contacts'],
+    ['Department of Veterans Affairs','VA','2026-05-15','Strong relationship with Philadelphia VAMC contracting office. Prefers small business primes with solid PM experience. Multiple open requirements expected Q3 2026. Follow up on VAMC Philadelphia solicitation by June 30.','[{"name":"Sandra Ruiz","title":"Contracting Officer","email":"sandra.ruiz@va.gov","phone":"215-555-0311"}]'],
+    ['General Services Administration','GSA','2026-04-28','Currently performing on pilot admin support contract in Region 3. CO is responsive and pleased with performance so far. Potential follow-on award likely Q4 2026. IDIQ vehicle opportunity being discussed.','[{"name":"Marcus Webb","title":"Contracting Officer Representative","email":"marcus.webb@gsa.gov","phone":"215-555-0422"}]'],
+    ['Department of the Army','Army','2026-05-02','Fort Dix janitorial opportunity in active bid phase. CO confirmed small business set-aside. Past performance on similar work is the key evaluation factor — our USPS win helps here.','[{"name":"Patricia Howe","title":"Contracting Officer","email":"patricia.howe@army.mil","phone":"609-555-0183"}]'],
+    ['Small Business Administration','SBA','2026-04-10','Philadelphia District Office looking for admin support contractor. Good entry point — smaller value, less competition. District Director is receptive to newer small business primes.','[{"name":"David Park","title":"Procurement Analyst","email":"david.park@sba.gov","phone":"215-555-0567"}]'],
+  ],
+  WinLoss: [
+    ['name','agency','value','outcome','date','reason'],
+    ['Administrative Support Pilot — GSA Region 3','General Services Administration',74000,'won','2026-02-14','Strong capability statement, competitive pricing at 18% margin, solid PM approach. Only bidder with a pre-identified qualified subcontractor already under teaming agreement.'],
+    ['Grounds Maintenance — Tobyhanna Army Depot','Department of the Army',38400,'won','2026-01-20','Veteran-owned sub (Pocono Grounds) provided set-aside advantage. Price came in 8% below next lowest competitor.'],
+    ['Facilities Support — USPS Philadelphia Processing Center','US Postal Service',95000,'won','2026-04-22','Teaming agreement with ClearPath gave us the past performance the agency required. Had submitted a sources sought response 6 months earlier — CO remembered us by name.'],
+    ['IT Help Desk — Philadelphia IRS Campus','Internal Revenue Service',220000,'lost','2026-03-05','Lost on past performance — IRS required 3 years of documented federal IT contracting history. Too early for this category. Will revisit once we have 2 years of federal work on record.'],
+    ['Janitorial Services — SSA Reading District Office','Social Security Administration',62000,'lost','2026-04-01','Underbid by incumbent contractor who had existing on-site staff. Margin was too thin regardless. Lesson learned: price for sustainable profit, not just to win.'],
+  ],
+  Activity: [
+    ['text','color','time'],
+    ['Tagged "VA Facilities Management" as Pursuing','var(--green2)','2026-06-03T09:15:00Z'],
+    ['Created quote: VA Facilities Quote','var(--gold2)','2026-06-03T09:10:00Z'],
+    ['Logged win: Facilities Support — USPS Philadelphia $95,000','var(--green2)','2026-04-22T14:30:00Z'],
+    ['Added agency: Small Business Administration','var(--blue2)','2026-04-10T11:00:00Z'],
+    ['Invoice paid: Contract Payment Q2 Admin Support $18,500','var(--green2)','2026-04-15T08:00:00Z'],
+    ['Added subcontractor: Summit Admin Group','var(--green2)','2026-02-01T10:00:00Z'],
+    ['Logged win: Administrative Support Pilot — GSA $74,000','var(--green2)','2026-02-14T16:00:00Z'],
+    ['Logged win: Grounds Maintenance — Tobyhanna $38,400','var(--green2)','2026-01-20T12:00:00Z'],
+  ],
+  Settings: [
+    ['key','value'],
+    ['company','Ironwood Solutions'],
+    ['margin','18'],
+  ]
+};
+
+function logItem(tab, state, msg) {
+  const el = document.getElementById('logItems');
+  const id = `log-${tab}`;
+  let item = document.getElementById(id);
+  if (!item) {
+    item = document.createElement('div');
+    item.id = id;
+    item.className = 'log-item pending';
+    el.appendChild(item);
+  }
+  item.className = `log-item ${state}`;
+  const icon = state === 'ok' ? '✓' : state === 'err' ? '✗' : '◌';
+  item.innerHTML = `<span>${icon}</span><span>${tab} — ${msg}</span>`;
+}
+
+async function writeTab(tab, rows) {
+  logItem(tab, 'pending', 'writing…');
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: SECRET, action: 'write', tab, sheetUrl: SHEET_URL, rows })
+  });
+  const text = await res.text();
+  let d;
+  try { d = JSON.parse(text); } catch(e) { throw new Error('Invalid response from server'); }
+  if (d.error) throw new Error(d.error);
+  logItem(tab, 'ok', `${rows.length - 1} rows written`);
+}
+
+async function seedAll() {
+  const btn = document.getElementById('seedBtn');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  document.getElementById('log').style.display = 'block';
+  document.getElementById('progress').style.display = 'block';
+
+  const tabs = Object.keys(SAMPLE);
+  let done = 0;
+
+  for (const tab of tabs) {
+    try {
+      await writeTab(tab, SAMPLE[tab]);
+    } catch(e) {
+      logItem(tab, 'err', e.message);
+    }
+    done++;
+    document.getElementById('progressFill').style.width = `${Math.round(done/tabs.length*100)}%`;
+  }
+
+  btn.textContent = 'Done ✓';
+  document.getElementById('doneBox').style.display = 'block';
+}
+</script>
+</body>
+</html>
