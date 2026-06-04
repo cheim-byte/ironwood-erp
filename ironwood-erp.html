@@ -85,11 +85,11 @@ a:hover{text-decoration:underline}
 .kpi-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-top:4px}
 
 .badge{font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;border-radius:3px;white-space:nowrap;display:inline-block}
-.badge-pursuing{background:rgba(82,183,136,0.12);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
 .badge-watching{background:rgba(69,123,157,0.12);color:var(--blue2);border:1px solid rgba(69,123,157,0.25)}
-.badge-bidding{background:rgba(196,123,43,0.12);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
-.badge-subbing{background:rgba(155,93,229,0.12);color:var(--purple2);border:1px solid rgba(155,93,229,0.25)}
-.badge-pass{background:rgba(107,122,153,0.12);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
+.badge-quoting{background:rgba(196,123,43,0.12);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.badge-submitted{background:rgba(155,93,229,0.12);color:var(--purple2);border:1px solid rgba(155,93,229,0.25)}
+.badge-won{background:rgba(82,183,136,0.15);color:var(--green2);border:1px solid rgba(82,183,136,0.3)}
+.badge-loss{background:rgba(107,122,153,0.12);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
 .badge-won{background:rgba(82,183,136,0.15);color:var(--green2);border:1px solid rgba(82,183,136,0.3)}
 .badge-lost{background:rgba(230,57,70,0.1);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
 .badge-active{background:rgba(82,183,136,0.1);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
@@ -167,11 +167,11 @@ a:hover{text-decoration:underline}
 .opp-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bg4);transition:background 0.2s}
 .opp-card:hover{border-color:var(--border2)}
 .opp-card:hover::before{background:var(--amber)}
-.opp-card.tagged-pursuing::before{background:var(--green2)}
 .opp-card.tagged-watching::before{background:var(--blue2)}
-.opp-card.tagged-bidding::before{background:var(--amber2)}
-.opp-card.tagged-subbing::before{background:var(--purple2)}
-.opp-card.tagged-pass::before{background:var(--muted)}
+.opp-card.tagged-quoting::before{background:var(--amber2)}
+.opp-card.tagged-submitted::before{background:var(--purple2)}
+.opp-card.tagged-won::before{background:var(--green2)}
+.opp-card.tagged-loss::before{background:var(--muted)}
 .opp-title{font-size:14px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:8px;flex:1}
 .opp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
 .meta-k{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
@@ -187,19 +187,19 @@ a:hover{text-decoration:underline}
 .lane{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:var(--radius);padding:14px;min-height:300px}
 .lane-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .lane-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em}
-.lane-pursuing .lane-title{color:var(--green2)}
 .lane-watching .lane-title{color:var(--blue2)}
-.lane-bidding .lane-title{color:var(--amber2)}
-.lane-subbing .lane-title{color:var(--purple2)}
-.lane-pass .lane-title{color:var(--mist)}
+.lane-quoting .lane-title{color:var(--amber2)}
+.lane-submitted .lane-title{color:var(--purple2)}
+.lane-won .lane-title{color:var(--green2)}
+.lane-loss .lane-title{color:var(--mist)}
 .lane-count{font-family:'DM Mono',monospace;font-size:10px;background:rgba(255,255,255,0.06);border-radius:8px;padding:2px 7px;color:var(--mist)}
 .pipe-card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:12px 13px;margin-bottom:8px;cursor:grab;transition:all 0.18s;position:relative;overflow:hidden}
 .pipe-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
-.lane-pursuing .pipe-card::before{background:var(--green2)}
 .lane-watching .pipe-card::before{background:var(--blue2)}
-.lane-bidding .pipe-card::before{background:var(--amber2)}
-.lane-subbing .pipe-card::before{background:var(--purple2)}
-.lane-pass .pipe-card::before{background:var(--muted)}
+.lane-quoting .pipe-card::before{background:var(--amber2)}
+.lane-submitted .pipe-card::before{background:var(--purple2)}
+.lane-won .pipe-card::before{background:var(--green2)}
+.lane-loss .pipe-card::before{background:var(--muted)}
 .pipe-card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
 .pipe-card:active{cursor:grabbing}
 .pipe-title{font-size:12px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:7px}
@@ -251,6 +251,89 @@ a:hover{text-decoration:underline}
 .deadline-soon{background:rgba(196,123,43,0.12);color:var(--amber2)}
 .deadline-ok{background:rgba(82,183,136,0.1);color:var(--green2)}
 
+
+
+
+
+/* SUB PAYMENTS */
+.subpay-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;transition:all 0.18s;position:relative;overflow:hidden}
+.subpay-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.subpay-paid::before{background:var(--green2)}
+.subpay-pending::before{background:var(--amber)}
+.subpay-overdue::before{background:var(--red2)}
+.subpay-waiting::before{background:var(--blue2)}
+.subpay-card:hover{border-color:var(--border2)}
+.subpay-status{display:inline-block;padding:3px 10px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px}
+.subpay-status-paid{background:rgba(82,183,136,0.12);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.subpay-status-pending{background:rgba(196,123,43,0.1);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.subpay-status-overdue{background:rgba(230,57,70,0.1);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
+.subpay-status-waiting{background:rgba(69,123,157,0.1);color:var(--blue2);border:1px solid rgba(69,123,157,0.2)}
+.pwp-banner{background:rgba(69,123,157,0.08);border:1px solid rgba(69,123,157,0.2);border-radius:6px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--blue2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* GOV PAYMENTS */
+.pay-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;transition:all 0.18s;position:relative;overflow:hidden}
+.pay-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.pay-received::before{background:var(--green2)}
+.pay-scheduled::before{background:var(--amber)}
+.pay-overdue::before{background:var(--red2)}
+.pay-cancelled::before{background:var(--muted)}
+.pay-card:hover{border-color:var(--border2)}
+.pay-amount{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:0.04em;line-height:1}
+.pay-status{display:inline-block;padding:3px 10px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px}
+.pay-status-received{background:rgba(82,183,136,0.12);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.pay-status-scheduled{background:rgba(196,123,43,0.1);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.pay-status-overdue{background:rgba(230,57,70,0.1);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
+.pay-status-cancelled{background:rgba(107,122,153,0.08);color:var(--mist);border:1px solid rgba(107,122,153,0.15)}
+.contract-filter{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--cream);outline:none;cursor:pointer;margin-right:8px}
+.contract-filter:focus{border-color:var(--amber)}
+
+/* CONTRACTS */
+.contract-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;transition:all 0.18s;position:relative;overflow:hidden}
+.contract-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.contract-active::before{background:var(--green2)}
+.contract-onhold::before{background:var(--amber2)}
+.contract-complete::before{background:var(--mist)}
+.contract-terminated::before{background:var(--red2)}
+.contract-card:hover{border-color:var(--border2)}
+.contract-title{font-size:15px;font-weight:700;color:var(--cream);margin-bottom:3px}
+.contract-agency{font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px}
+.contract-nums{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px}
+.contract-num{display:flex;flex-direction:column;gap:1px}
+.sched-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:6px;margin-bottom:6px;font-family:'DM Mono',monospace;font-size:11px}
+.sched-due{background:rgba(196,123,43,0.08);border:1px solid rgba(196,123,43,0.15)}
+.sched-upcoming{background:rgba(82,183,136,0.06);border:1px solid rgba(82,183,136,0.12)}
+.sched-past{background:rgba(107,122,153,0.06);border:1px solid rgba(107,122,153,0.12);color:var(--mist)}
+.terms-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+.terms-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center}
+.terms-val{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--amber2);line-height:1}
+.terms-key{font-family:'DM Mono',monospace;font-size:9px;color:var(--mist);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px}
+
+/* SUB ASSIGNMENTS */
+.opp-detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
+.opp-detail{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:760px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow)}
+.opp-detail-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.opp-detail-title{font-size:16px;font-weight:700;color:var(--cream);line-height:1.3;flex:1}
+.opp-detail-agency{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-top:3px}
+.opp-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 24px}
+.opp-tab{font-family:'DM Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.12em;padding:10px 14px;cursor:pointer;border:none;background:none;color:var(--mist);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.18s}
+.opp-tab:hover{color:var(--cream)}
+.opp-tab.active{color:var(--amber2);border-bottom-color:var(--amber)}
+.opp-detail-body{padding:20px 24px}
+.assign-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;position:relative}
+.assign-sub-name{font-size:14px;font-weight:700;color:var(--cream);margin-bottom:4px}
+.assign-scope{font-size:12px;color:var(--mist);line-height:1.5;margin-bottom:8px}
+.assign-meta{display:flex;gap:16px;flex-wrap:wrap}
+.assign-meta-item{display:flex;flex-direction:column;gap:1px}
+.assign-status{display:inline-block;padding:3px 8px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px}
+.assign-proposed{background:rgba(107,122,153,0.12);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
+.assign-confirmed{background:rgba(196,123,43,0.12);color:var(--amber2);border:1px solid rgba(196,123,43,0.25)}
+.assign-teaming{background:rgba(69,123,157,0.12);color:var(--blue2);border:1px solid rgba(69,123,157,0.25)}
+.assign-active{background:rgba(82,183,136,0.12);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
+.assign-complete{background:rgba(107,122,153,0.08);color:var(--muted);border:1px solid rgba(107,122,153,0.15)}
+.cost-bar{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px}
+.cost-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.cost-row:last-child{border-bottom:none}
+
 /* SETTINGS */
 .setting-group{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
 .setting-group-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--amber);margin-bottom:14px}
@@ -273,6 +356,9 @@ a:hover{text-decoration:underline}
     <button class="nav-item" onclick="nav('pricing')"><span class="nav-icon">💰</span>Pricing & Quotes</button>
     <button class="nav-item" onclick="nav('financials')"><span class="nav-icon">📈</span>Financials</button>
     <div class="nav-section">Intelligence</div>
+    <button class="nav-item" onclick="nav('contracts')"><span class="nav-icon">📑</span>Contracts</button>
+    <button class="nav-item" onclick="nav('govpay')"><span class="nav-icon">💵</span>Gov Payments</button>
+    <button class="nav-item" onclick="nav('subpay')"><span class="nav-icon">🔄</span>Sub Payments</button>
     <button class="nav-item" onclick="nav('agencies')"><span class="nav-icon">🏛️</span>Agencies</button>
     <button class="nav-item" onclick="nav('winloss')"><span class="nav-icon">🏆</span>Win/Loss Log</button>
     <div class="nav-section">System</div>
@@ -323,6 +409,10 @@ const S = {
   agencies: [],
   winloss: [],
   activity: [],
+  subAssignments: [],
+  contracts: [],
+  govPayments: [],
+  subPayments: [],
   settings: { company: 'Ironwood Solutions', margin: 15, samKey: '' }
 };
 
@@ -332,10 +422,83 @@ let lastKeywords = '';
 let dragPid = null;
 let syncing = false;
 
-const TAG_LABELS = { pursuing:'Pursuing', watching:'Watching', bidding:'Bidding', subbing:'Subbing', pass:'Pass' };
+const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss / Pass' };
 const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
 const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
-const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings'];
+const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments'];
+
+
+
+
+
+// SubPayments serialization
+function subPaymentsToRows() {
+  const rows = [['payId','contractId','subName','description','dueDate','paidDate','amount','status','govPayId','notes']];
+  S.subPayments.forEach(p => rows.push([
+    p.payId||'', p.contractId||'', p.subName||'', p.description||'',
+    p.dueDate||'', p.paidDate||'', p.amount||0,
+    p.status||'pending', p.govPayId||'', p.notes||''
+  ]));
+  return rows;
+}
+function rowsToSubPayments(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    payId:r[0], contractId:r[1], subName:r[2], description:r[3],
+    dueDate:r[4], paidDate:r[5], amount:parseFloat(r[6])||0,
+    status:r[7]||'pending', govPayId:r[8]||'', notes:r[9]||''
+  }));
+}
+
+// GovPayments serialization
+function govPaymentsToRows() {
+  const rows = [['payId','contractId','description','scheduledDate','receivedDate','amount','status','notes']];
+  S.govPayments.forEach(p => rows.push([
+    p.payId||'', p.contractId||'', p.description||'',
+    p.scheduledDate||'', p.receivedDate||'',
+    p.amount||0, p.status||'scheduled', p.notes||''
+  ]));
+  return rows;
+}
+function rowsToGovPayments(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    payId:r[0], contractId:r[1], description:r[2],
+    scheduledDate:r[3], receivedDate:r[4],
+    amount:parseFloat(r[5])||0, status:r[6]||'scheduled', notes:r[7]||''
+  }));
+}
+
+// Contracts serialization
+function contractsToRows() {
+  const rows = [['contractId','oppId','title','agency','contractNum','poNum','totalValue','startDate','endDate','status','paymentCadence','paymentAmount','paymentDay','netTermsGov','netTermsSub','retainage','notes']];
+  S.contracts.forEach(c => rows.push([
+    c.contractId||'', c.oppId||'', c.title||'', c.agency||'',
+    c.contractNum||'', c.poNum||'', c.totalValue||0,
+    c.startDate||'', c.endDate||'', c.status||'active',
+    c.paymentCadence||'monthly', c.paymentAmount||0, c.paymentDay||1,
+    c.netTermsGov||30, c.netTermsSub||30, c.retainage||0, c.notes||''
+  ]));
+  return rows;
+}
+function rowsToContracts(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    contractId:r[0], oppId:r[1], title:r[2], agency:r[3],
+    contractNum:r[4], poNum:r[5], totalValue:parseFloat(r[6])||0,
+    startDate:r[7], endDate:r[8], status:r[9],
+    paymentCadence:r[10], paymentAmount:parseFloat(r[11])||0,
+    paymentDay:parseInt(r[12])||1, netTermsGov:parseInt(r[13])||30,
+    netTermsSub:parseInt(r[14])||30, retainage:parseFloat(r[15])||0, notes:r[16]||''
+  }));
+}
+
+// SubAssignments serialization
+function subAssignmentsToRows() {
+  const rows = [['assignId','oppId','contractId','subName','scope','quotedAmount','status','notes']];
+  S.subAssignments.forEach(a => rows.push([a.assignId||'',a.oppId||'',a.contractId||'',a.subName||'',a.scope||'',a.quotedAmount||0,a.status||'proposed',a.notes||'']));
+  return rows;
+}
+function rowsToSubAssignments(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({assignId:r[0],oppId:r[1],contractId:r[2],subName:r[3],scope:r[4],quotedAmount:parseFloat(r[5])||0,status:r[6],notes:r[7]}));
+}
 
 // ══ GOOGLE SHEETS SYNC ════════════════════════════════════════════════════════
 function setSyncStatus(state, msg) {
@@ -369,13 +532,24 @@ async function sheetWrite(tab, rows) {
 
 // Serialize/deserialize each module to/from sheet rows
 function pipelineToRows() {
-  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url']];
-  Object.entries(S.pipeline).forEach(([pid, p]) => rows.push([pid, p.tag||'', p.title||'', p.agency||'', p.naics||'', p.solNum||'', p.deadline||'', p.url||'']));
+  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource']];
+  Object.entries(S.pipeline).forEach(([pid, p]) => rows.push([
+    pid, p.tag||'', p.title||'', p.agency||'', p.naics||'',
+    p.solNum||'', p.deadline||'', p.url||'', p.notes||'',
+    p.solNum||'', p.finalBid||0, p.prevContractValue||0, p.prevContractSource||''
+  ]));
   return rows;
 }
 function rowsToPipeline(rows) {
   const p = {};
-  rows.slice(1).forEach(r => { if (r[0]) p[r[0]] = { tag:r[1], title:r[2], agency:r[3], naics:r[4], solNum:r[5], deadline:r[6], url:r[7] }; });
+  rows.slice(1).forEach(r => {
+    if (r[0]) p[r[0]] = {
+      tag:r[1], title:r[2], agency:r[3], naics:r[4],
+      solNum:r[5], deadline:r[6], url:r[7],
+      notes:r[8]||'', finalBid:parseFloat(r[10])||0,
+      prevContractValue:parseFloat(r[11])||0, prevContractSource:r[12]||''
+    };
+  });
   return p;
 }
 function subsToRows() {
@@ -425,7 +599,11 @@ async function syncToSheet(tab) {
   const map = {
     Pipeline: pipelineToRows, Subcontractors: subsToRows, Quotes: quotesToRows,
     Invoices: invoicesToRows, Agencies: agenciesToRows, WinLoss: wlToRows,
-    Activity: activityToRows, Settings: settingsToRows
+    Activity: activityToRows, Settings: settingsToRows,
+    SubAssignments: subAssignmentsToRows,
+    Contracts: contractsToRows,
+    GovPayments: govPaymentsToRows,
+    SubPayments: subPaymentsToRows
   };
   if (map[tab]) await sheetWrite(tab, map[tab]());
 }
@@ -433,10 +611,21 @@ async function syncToSheet(tab) {
 async function loadFromSheet() {
   setSyncStatus('syncing', 'Loading…');
   try {
-    const [pipe, subs, quotes, inv, ag, wl, act, settings] = await Promise.all([
-      sheetRead('Pipeline'), sheetRead('Subcontractors'), sheetRead('Quotes'),
-      sheetRead('Invoices'), sheetRead('Agencies'), sheetRead('WinLoss'),
-      sheetRead('Activity'), sheetRead('Settings')
+    // Load all tabs in parallel, fall back to empty arrays on individual tab failures
+    const safe = async (tab, fallback) => { try { return await sheetRead(tab); } catch(e) { console.warn(`Tab load failed: ${tab}`, e.message); return fallback; } };
+    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay] = await Promise.all([
+      safe('Pipeline', [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource']]),
+      safe('Subcontractors', [['name','trade','phone','email','naics','samStatus','insExpiry','status','rating','notes']]),
+      safe('Quotes', [['name','opportunity','marginPct','created','lines']]),
+      safe('Invoices', [['desc','amount','date','type','status']]),
+      safe('Agencies', [['name','abbr','lastContact','notes','contacts']]),
+      safe('WinLoss', [['name','agency','value','outcome','date','reason']]),
+      safe('Activity', [['text','color','time']]),
+      safe('Settings', [['key','value']]),
+      safe('SubAssignments', [['assignId','oppId','contractId','subName','scope','quotedAmount','status','notes']]),
+      safe('Contracts', [['contractId','oppId','title','agency','contractNum','poNum','totalValue','startDate','endDate','status','paymentCadence','paymentAmount','paymentDay','netTermsGov','netTermsSub','retainage','notes']]),
+      safe('GovPayments', [['payId','contractId','description','scheduledDate','receivedDate','amount','status','notes']]),
+      safe('SubPayments', [['payId','contractId','subName','description','dueDate','paidDate','amount','status','govPayId','notes']]),
     ]);
     S.pipeline = rowsToPipeline(pipe);
     S.subs = rowsToSubs(subs);
@@ -446,6 +635,10 @@ async function loadFromSheet() {
     S.winloss = rowsToWL(wl);
     S.activity = rowsToActivity(act);
     S.settings = rowsToSettings(settings);
+    S.subAssignments = rowsToSubAssignments(sa);
+    S.contracts = rowsToContracts(contracts);
+    S.govPayments = rowsToGovPayments(govpay);
+    S.subPayments = rowsToSubPayments(subpay);
     S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
     setSyncStatus('live', 'Synced');
     updateBadges();
@@ -453,7 +646,7 @@ async function loadFromSheet() {
     toast('Data loaded from Google Sheets ✓');
   } catch(e) {
     setSyncStatus('error', 'Sync failed');
-    toast('Sync error: ' + e.message, true);
+    toast('Sync error: ' + e.message + ' — check your Apps Script deployment', true);
   }
 }
 
@@ -481,7 +674,7 @@ function updateBadges() {
 }
 
 // ══ NAVIGATION ════════════════════════════════════════════════════════════════
-const PAGE_TITLES = { dashboard:'Dashboard', search:'Opportunity Search', pipeline:'Contract Pipeline', subs:'Subcontractors', pricing:'Pricing & Quotes', financials:'Financials', agencies:'Agency Tracker', winloss:'Win / Loss Log', settings:'Settings' };
+const PAGE_TITLES = { dashboard:'Dashboard', search:'Opportunity Search', pipeline:'Contract Pipeline', subs:'Subcontractors', pricing:'Pricing & Quotes', financials:'Financials', contracts:'Contracts', govpay:'Government Payments', subpay:'Sub Payments', agencies:'Agency Tracker', winloss:'Win / Loss Log', settings:'Settings' };
 
 function nav(v) {
   currentView = v;
@@ -499,7 +692,7 @@ function renderView(v) {
   const ta = document.getElementById('topbarActions');
   ta.innerHTML = '';
   c.innerHTML = '';
-  const fns = { dashboard:renderDashboard, search:renderSearch, pipeline:renderPipeline, subs:renderSubs, pricing:renderPricing, financials:renderFinancials, agencies:renderAgencies, winloss:renderWinLoss, settings:renderSettings };
+  const fns = { dashboard:renderDashboard, search:renderSearch, pipeline:renderPipeline, subs:renderSubs, pricing:renderPricing, financials:renderFinancials, contracts:renderContracts, govpay:renderGovPayments, subpay:renderSubPayments, agencies:renderAgencies, winloss:renderWinLoss, settings:renderSettings };
   if (fns[v]) fns[v](c, ta);
 }
 
@@ -507,18 +700,18 @@ function renderView(v) {
 function renderDashboard(c, ta) {
   ta.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="loadFromSheet()">↻ Refresh</button>`;
   const tagged = Object.keys(S.pipeline).length;
-  const pursuing = Object.values(S.pipeline).filter(p=>p.tag==='pursuing').length;
-  const bidding = Object.values(S.pipeline).filter(p=>p.tag==='bidding').length;
+  const pursuing = Object.values(S.pipeline).filter(p=>p.tag==='quoting').length;
+  const bidding = Object.values(S.pipeline).filter(p=>p.tag==='submitted').length;
   const totalRevenue = S.invoices.filter(i=>i.status==='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
   const pending = S.invoices.filter(i=>i.status==='pending').reduce((a,b)=>a+parseFloat(b.amount||0),0);
   const won = S.winloss.filter(w=>w.outcome==='won').length;
   const lost = S.winloss.filter(w=>w.outcome==='lost').length;
   const winRate = won+lost>0 ? Math.round(won/(won+lost)*100) : 0;
-  const deadlines = Object.values(S.pipeline).filter(p=>p.deadline&&p.tag!=='pass').map(p=>({...p,days:Math.ceil((new Date(p.deadline)-new Date())/86400000)})).filter(p=>p.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
+  const deadlines = Object.values(S.pipeline).filter(p=>p.deadline&&p.tag!=='loss').map(p=>({...p,days:Math.ceil((new Date(p.deadline)-new Date())/86400000)})).filter(p=>p.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
 
   c.innerHTML = `
   <div class="grid4" style="margin-bottom:20px">
-    <div class="kpi kpi-amber"><div class="kpi-label">Pipeline</div><div class="kpi-value">${tagged}</div><div class="kpi-sub">${pursuing} pursuing · ${bidding} bidding</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label">Pipeline</div><div class="kpi-value">${tagged}</div><div class="kpi-sub">${pursuing} quoting · ${bidding} submitted</div></div>
     <div class="kpi kpi-green"><div class="kpi-label">Revenue Collected</div><div class="kpi-value">$${fmt(totalRevenue)}</div><div class="kpi-sub">$${fmt(pending)} pending</div></div>
     <div class="kpi kpi-blue"><div class="kpi-label">Win Rate</div><div class="kpi-value">${winRate}%</div><div class="kpi-sub">${won} won · ${lost} lost</div></div>
     <div class="kpi kpi-purple"><div class="kpi-label">Subcontractors</div><div class="kpi-value">${S.subs.length}</div><div class="kpi-sub">${S.subs.filter(s=>s.status==='active').length} active</div></div>
@@ -538,7 +731,7 @@ function renderDashboard(c, ta) {
   <div class="grid3" style="margin-top:16px">
     <div class="card">
       <div class="card-title">Pipeline by Stage</div>
-      ${['pursuing','watching','bidding','subbing','pass'].map(tag=>{const count=Object.values(S.pipeline).filter(p=>p.tag===tag).length;return`<div class="fin-row"><span class="fin-label"><span class="badge badge-${tag}">${TAG_LABELS[tag]}</span></span><span class="mono muted">${count}</span></div>`;}).join('')}
+      ${['watching','quoting','submitted','won','loss'].map(tag=>{const count=Object.values(S.pipeline).filter(p=>p.tag===tag).length;return`<div class="fin-row"><span class="fin-label"><span class="badge badge-${tag}">${TAG_LABELS[tag]}</span></span><span class="mono muted">${count}</span></div>`;}).join('')}
     </div>
     <div class="card">
       <div class="card-title">Invoice Summary</div>
@@ -706,7 +899,7 @@ async function tagOpp(pid, tag, metaJson) {
   if (!tag) { delete S.pipeline[pid]; logActivity(`Removed opportunity from pipeline`,'var(--mist)'); }
   else {
     S.pipeline[pid] = { tag, ...meta };
-    logActivity(`Tagged "${trunc(meta.title,40)}" as ${TAG_LABELS[tag]}`, tag==='pursuing'?'var(--green2)':tag==='bidding'?'var(--amber2)':'var(--blue2)');
+    logActivity(`Tagged "${trunc(meta.title,40)}" as ${TAG_LABELS[tag]}`, tag==='won'?'var(--green2)':tag==='quoting'?'var(--amber2)':tag==='submitted'?'var(--purple2)':'var(--blue2)');
     toast(`Added to ${TAG_LABELS[tag]} ✓`);
   }
   updateBadges();
@@ -741,15 +934,16 @@ function showSearchErr(msg) {
 function renderPipeline(c, ta) {
   if(!c)c=document.getElementById('content');
   if(!ta)ta=document.getElementById('topbarActions');
-  const lanes=['pursuing','watching','bidding','subbing','pass'];
+  const lanes=['watching','quoting','submitted','won','loss'];
   const counts={};lanes.forEach(l=>counts[l]=Object.values(S.pipeline).filter(p=>p.tag===l).length);
   const total=Object.keys(S.pipeline).length;
   c.innerHTML=`
   <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
-    <div class="kpi kpi-amber" style="flex:1;min-width:130px"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div></div>
-    <div class="kpi kpi-green" style="flex:1;min-width:130px"><div class="kpi-label">Pursuing</div><div class="kpi-value">${counts.pursuing||0}</div></div>
-    <div class="kpi kpi-blue" style="flex:1;min-width:130px"><div class="kpi-label">Bidding</div><div class="kpi-value">${counts.bidding||0}</div></div>
-    <div class="kpi kpi-purple" style="flex:1;min-width:130px"><div class="kpi-label">Subbing</div><div class="kpi-value">${counts.subbing||0}</div></div>
+    <div class="kpi kpi-amber" style="flex:1;min-width:110px"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi kpi-blue" style="flex:1;min-width:110px"><div class="kpi-label">Watching</div><div class="kpi-value">${counts.watching||0}</div></div>
+    <div class="kpi kpi-amber" style="flex:1;min-width:110px"><div class="kpi-label">Quoting</div><div class="kpi-value">${counts.quoting||0}</div></div>
+    <div class="kpi kpi-purple" style="flex:1;min-width:110px"><div class="kpi-label">Submitted</div><div class="kpi-value">${counts.submitted||0}</div></div>
+    <div class="kpi kpi-green" style="flex:1;min-width:110px"><div class="kpi-label">Won</div><div class="kpi-value">${counts.won||0}</div></div>
   </div>
   <div class="kanban-wrap"><div class="kanban">
     ${lanes.map(lane=>`
@@ -762,17 +956,28 @@ function renderPipeline(c, ta) {
 
 function pipeCard(pid, p) {
   const dl=p.deadline?`<div class="pipe-meta">Due <span style="color:${isUrgent(p.deadline)?'var(--red2)':'var(--cream)'}">${fmtDate(p.deadline)}</span></div>`:'';
+  const quotes = S.subAssignments.filter(a=>a.oppId===pid);
+  const awarded = quotes.find(q=>q.status==='awarded');
+  const quoteCount = quotes.length;
+  const finalBid = parseFloat(p.finalBid||0);
   return `<div class="pipe-card" draggable="true" ondragstart="dragPid='${pid}';event.dataTransfer.setData('text/plain','${pid}')">
     <div class="pipe-title">${esc(trunc(p.title||'',65))}</div>
     <div class="pipe-meta">${esc(trunc(p.agency||'',40))}</div>
     ${p.naics?`<div class="pipe-meta">NAICS <span style="color:var(--cream)">${p.naics}</span></div>`:''}
     ${dl}
+    ${awarded
+      ? `<div class="pipe-meta" style="margin-top:4px">✓ <span style="color:var(--green2)">${esc(awarded.subName)}</span> · <span style="color:var(--amber2)">$${fmt(awarded.quotedAmount)}</span></div>`
+      : quoteCount>0
+        ? `<div class="pipe-meta" style="margin-top:4px">📋 <span style="color:var(--blue2)">${quoteCount} quote${quoteCount>1?'s':''} pending</span></div>`
+        : `<div class="pipe-meta" style="margin-top:4px;color:var(--muted)">No sub quotes yet</div>`}
+    ${finalBid>0?`<div class="pipe-meta" style="margin-top:2px">🎯 Final bid: <span style="color:var(--gold2)">$${fmt(finalBid)}</span></div>`:''}
     <div class="pipe-actions">
       <select class="move-sel" onchange="movePipe('${pid}',this.value)">
         ${Object.entries(TAG_LABELS).map(([vv,l])=>`<option value="${vv}" ${vv===p.tag?'selected':''}>${l}</option>`).join('')}
       </select>
       <div style="display:flex;gap:4px">
-        ${p.url?`<a class="btn btn-ghost btn-xs" href="${p.url}" target="_blank">View</a>`:''}
+        <button class="btn btn-ghost btn-xs" onclick="openOppDetail('${pid}')">Detail</button>
+        ${p.url?`<a class="btn btn-ghost btn-xs" href="${p.url}" target="_blank">SAM</a>`:''}
         <button class="rm-btn" onclick="removePipe('${pid}')">✕</button>
       </div>
     </div>
@@ -786,6 +991,493 @@ async function dropCard(e, newTag) {
 }
 async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();toast(`Moved to ${TAG_LABELS[tag]} ✓`);}}
 async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');renderPipeline();}
+
+
+// ══ OPP DETAIL & SUB ASSIGNMENTS ═════════════════════════════════════════════
+// ══ OPP DETAIL & SUB QUOTING ═════════════════════════════════════════════════
+
+function openOppDetail(pid, tab='quotes') {
+  const p = S.pipeline[pid];
+  if (!p) return;
+  const existing = document.getElementById('oppDetailOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'opp-detail-overlay';
+  overlay.id = 'oppDetailOverlay';
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="opp-detail" style="max-width:820px">
+      <div class="opp-detail-header">
+        <div>
+          <div class="opp-detail-title">${esc(p.title||'Untitled')}</div>
+          <div class="opp-detail-agency">${esc(p.agency||'')} · ${p.naics||''} · Due ${fmtDate(p.deadline)}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+          <span class="badge badge-${p.tag||'default'}">${TAG_LABELS[p.tag]||p.tag}</span>
+          <button class="modal-close" onclick="document.getElementById('oppDetailOverlay').remove()">✕</button>
+        </div>
+      </div>
+      <div class="opp-tabs">
+        <button class="opp-tab ${tab==='quotes'?'active':''}" onclick="oppTab('${pid}','quotes',this)">Sub Quotes</button>
+        <button class="opp-tab ${tab==='bid'?'active':''}" onclick="oppTab('${pid}','bid',this)">Bid Builder</button>
+        <button class="opp-tab ${tab==='notes'?'active':''}" onclick="oppTab('${pid}','notes',this)">Notes</button>
+      </div>
+      <div class="opp-detail-body" id="oppDetailBody">
+        ${renderOppTab(pid, tab)}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function oppTab(pid, tab, btn) {
+  document.querySelectorAll('#oppDetailOverlay .opp-tab').forEach(t=>t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const body = document.getElementById('oppDetailBody');
+  if (body) body.innerHTML = renderOppTab(pid, tab);
+}
+
+function renderOppTab(pid, tab) {
+  if (tab==='quotes') return renderQuotesTab(pid);
+  if (tab==='bid') return renderBidTab(pid);
+  return renderNotesTab(S.pipeline[pid]);
+}
+
+// ── SUB QUOTES TAB ────────────────────────────────────────────────────────────
+function renderQuotesTab(pid) {
+  const quotes = S.subAssignments.filter(a=>a.oppId===pid);
+  const received = quotes.filter(q=>q.status==='received'||q.status==='awarded'||q.status==='rejected');
+  const amounts = received.map(q=>parseFloat(q.quotedAmount||0)).filter(n=>n>0);
+  const highestBid = amounts.length > 0 ? Math.max(...amounts) : 0;
+  const lowestBid = amounts.length > 0 ? Math.min(...amounts) : 0;
+  const awarded = quotes.find(q=>q.status==='awarded');
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        ${highestBid>0?`<div><span class="meta-k">Highest Sub Quote</span><br><span class="mono" style="font-size:14px;color:var(--red2);font-weight:700">$${fmt(highestBid)}</span></div>`:''}
+        ${lowestBid>0&&lowestBid!==highestBid?`<div><span class="meta-k">Lowest Sub Quote</span><br><span class="mono" style="font-size:14px;color:var(--green2);font-weight:700">$${fmt(lowestBid)}</span></div>`:''}
+        ${awarded?`<div><span class="meta-k">Awarded To</span><br><span class="mono" style="font-size:13px;color:var(--amber2);font-weight:700">${esc(awarded.subName)}</span></div>`:''}
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openAddQuoteModal('${pid}')">+ Add Sub Quote</button>
+    </div>
+
+    ${quotes.length===0
+      ? `<div class="empty-state" style="padding:40px"><span class="empty-icon">📋</span><div class="empty-title">No Sub Quotes Yet</div><div class="empty-sub">Add quotes from subcontractors competing for this opportunity.</div></div>`
+      : `<table class="table">
+          <thead><tr>
+            <th>Subcontractor</th>
+            <th>Trade</th>
+            <th>Scope</th>
+            <th style="text-align:right">Quote</th>
+            <th style="text-align:center">vs Highest</th>
+            <th style="text-align:center">Status</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+          ${[...quotes].sort((a,b)=>parseFloat(a.quotedAmount||0)-parseFloat(b.quotedAmount||0)).map(q=>{
+            const sub = S.subs.find(s=>s.name===q.subName);
+            const amt = parseFloat(q.quotedAmount||0);
+            const isLowest = amt===lowestBid && amounts.length>1;
+            const isHighest = amt===highestBid && amounts.length>1;
+            const diff = highestBid>0 ? ((amt-highestBid)/highestBid*100).toFixed(1) : 0;
+            const statusColors = {quoting:'var(--mist)',received:'var(--blue2)',awarded:'var(--green2)',rejected:'var(--red2)'};
+            const statusColor = statusColors[q.status||'quoting']||'var(--mist)';
+            return `<tr style="background:${q.status==='awarded'?'rgba(82,183,136,0.05)':q.status==='rejected'?'rgba(230,57,70,0.03)':''}">
+              <td>
+                <div style="font-weight:600;color:var(--cream)">${esc(q.subName)}</div>
+                ${sub?`<div class="mono muted" style="font-size:10px">${esc(sub.samStatus||'')} · Ins ${isInsExpiring(sub.insExpiry)?'<span style="color:var(--red2)">⚠ Expiring</span>':esc(sub.insExpiry||'—')}</div>`:''}
+              </td>
+              <td class="muted" style="font-size:12px">${esc(sub?.trade||'—')}</td>
+              <td style="font-size:12px;color:var(--mist);max-width:180px">${esc(trunc(q.scope||'—',50))}</td>
+              <td style="text-align:right">
+                <span class="mono" style="font-size:14px;font-weight:700;color:${isLowest?'var(--green2)':isHighest?'var(--red2)':'var(--cream)'}">$${fmt(amt)}</span>
+                ${isLowest?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green2)">LOWEST</div>`:''}
+                ${isHighest?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red2)">HIGHEST</div>`:''}
+              </td>
+              <td style="text-align:center">
+                ${amounts.length>1&&amt>0?`<span class="mono" style="font-size:11px;color:${diff<0?'var(--green2)':'var(--red2)'}">${diff>0?'+':''}${diff}%</span>`:'<span class="muted">—</span>'}
+              </td>
+              <td style="text-align:center">
+                <span style="font-family:'DM Mono',monospace;font-size:10px;color:${statusColor};text-transform:uppercase;letter-spacing:0.08em">${q.status||'quoting'}</span>
+              </td>
+              <td>
+                <div style="display:flex;gap:4px;justify-content:flex-end">
+                  ${q.status!=='awarded'&&q.status!=='rejected'?`<button class="btn btn-primary btn-xs" onclick="awardSubQuote('${q.assignId}','${pid}')">Award</button>`:''}
+                  ${q.status==='awarded'?`<button class="btn btn-ghost btn-xs" onclick="unawardSubQuote('${q.assignId}','${pid}')">Unaward</button>`:''}
+                  <button class="btn btn-ghost btn-xs" onclick="editSubQuote('${q.assignId}','${pid}')">Edit</button>
+                  <button class="rm-btn" onclick="removeSubQuote('${q.assignId}','${pid}')">✕</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>`}
+    ${awarded?`<div style="margin-top:14px;padding:12px 16px;background:rgba(82,183,136,0.08);border:1px solid rgba(82,183,136,0.2);border-radius:8px;font-size:13px;color:var(--green2)">
+      ✓ <strong>${esc(awarded.subName)}</strong> awarded at <strong>$${fmt(awarded.quotedAmount)}</strong> — go to <button class="btn btn-ghost btn-xs" style="color:var(--amber2)" onclick="oppTab('${pid}','bid',null)">Bid Builder →</button> to set your final bid
+    </div>`:''}`;
+}
+
+// ── BID BUILDER TAB ───────────────────────────────────────────────────────────
+function renderBidTab(pid) {
+  const p = S.pipeline[pid];
+  const quotes = S.subAssignments.filter(a=>a.oppId===pid);
+  const awarded = quotes.find(q=>q.status==='awarded');
+  const margin = parseFloat(S.settings.margin||15);
+  const subCost = parseFloat(awarded?.quotedAmount||0);
+  const recBid = subCost > 0 ? subCost/(1-(margin/100)) : 0;
+  const finalBid = parseFloat(p.finalBid||0);
+  const actualMargin = finalBid > 0 ? ((finalBid-subCost)/finalBid*100).toFixed(1) : 0;
+  const actualProfit = finalBid > 0 ? finalBid - subCost : 0;
+  const receivedQuotes = quotes.filter(q=>q.quotedAmount>0);
+  const amounts = receivedQuotes.map(q=>parseFloat(q.quotedAmount||0));
+  const highestAmt = amounts.length>0 ? Math.max(...amounts) : 0;
+  const lowestAmt = amounts.length>0 ? Math.min(...amounts) : 0;
+
+  return `
+    ${!awarded?`<div class="pwp-banner" style="background:rgba(196,123,43,0.08);border-color:rgba(196,123,43,0.2);color:var(--amber2)">
+      ⚠ No sub awarded yet — go to <button class="btn btn-ghost btn-xs" style="color:var(--amber2)" onclick="oppTab('${pid}','quotes',null)">Sub Quotes</button> and award a sub first.
+    </div>`:''}
+
+    ${quotes.length>0?`
+    <div class="card-title" style="margin-bottom:10px">All Sub Quotes</div>
+    <table class="table" style="margin-bottom:20px">
+      <thead><tr>
+        <th>Subcontractor</th>
+        <th style="text-align:right">Quote</th>
+        <th style="text-align:right">Rec. Bid at ${margin}%</th>
+        <th style="text-align:center">Status</th>
+      </tr></thead>
+      <tbody>
+      ${[...quotes].sort((a,b)=>parseFloat(a.quotedAmount||0)-parseFloat(b.quotedAmount||0)).map(q=>{
+        const amt = parseFloat(q.quotedAmount||0);
+        const qRecBid = amt>0 ? amt/(1-(margin/100)) : 0;
+        const isAwarded = q.status==='awarded';
+        const isLowest = amt===lowestAmt && amt>0 && amounts.length>1;
+        const isHighest = amt===highestAmt && amounts.length>1;
+        const statusColors = {quoting:'var(--mist)',received:'var(--blue2)',awarded:'var(--green2)',rejected:'var(--red2)'};
+        return `<tr style="background:${isAwarded?'rgba(82,183,136,0.06)':q.status==='rejected'?'rgba(230,57,70,0.03)':''}">
+          <td>
+            <div style="font-weight:${isAwarded?'700':'400'};color:${isAwarded?'var(--green2)':'var(--cream)'}">${esc(q.subName)}${isAwarded?' ✓':''}</div>
+            ${q.scope?`<div class="mono muted" style="font-size:10px">${esc(trunc(q.scope,40))}</div>`:''}
+          </td>
+          <td style="text-align:right">
+            <span class="mono" style="font-size:13px;font-weight:700;color:${isLowest?'var(--green2)':isHighest?'var(--red2)':'var(--cream)'}">
+              ${amt>0?'$'+fmt(amt):'—'}
+            </span>
+            ${isLowest&&amounts.length>1?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green2)">LOWEST</div>`:''}
+            ${isHighest&&amounts.length>1?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red2)">HIGHEST</div>`:''}
+          </td>
+          <td style="text-align:right">
+            <span class="mono muted" style="font-size:12px">${qRecBid>0?'$'+fmt(qRecBid):'—'}</span>
+          </td>
+          <td style="text-align:center">
+            <span style="font-family:'DM Mono',monospace;font-size:10px;color:${statusColors[q.status||'quoting']};text-transform:uppercase">${q.status||'quoting'}</span>
+          </td>
+        </tr>`;
+      }).join('')}
+      ${highestAmt>0?`<tr style="border-top:2px solid var(--border)">
+        <td class="mono muted" style="font-size:11px">Highest Sub Quote</td>
+        <td style="text-align:right"><span class="mono" style="color:var(--red2);font-weight:700">$${fmt(highestAmt)}</span></td>
+        <td></td><td></td>
+      </tr>`:''}
+      </tbody>
+    </table>`:''}
+
+
+    <div class="grid3" style="margin-bottom:20px">
+      <div class="kpi kpi-amber" style="padding:14px 16px">
+        <div class="kpi-label">Awarded Sub Cost</div>
+        <div class="kpi-value" style="font-size:24px">${subCost>0?'$'+fmt(subCost):'—'}</div>
+        <div class="kpi-sub">${esc(awarded?.subName||'No sub awarded')}</div>
+      </div>
+      <div class="kpi kpi-blue" style="padding:14px 16px">
+        <div class="kpi-label">Recommended Bid (${margin}% margin)</div>
+        <div class="kpi-value" style="font-size:24px">${recBid>0?'$'+fmt(recBid):'—'}</div>
+        <div class="kpi-sub">Sub cost ÷ (1 − ${margin}%)</div>
+      </div>
+      <div class="kpi ${actualMargin>=margin?'kpi-green':'kpi-purple'}" style="padding:14px 16px">
+        <div class="kpi-label">Actual Margin on Final Bid</div>
+        <div class="kpi-value" style="font-size:24px">${finalBid>0?actualMargin+'%':'—'}</div>
+        <div class="kpi-sub">${finalBid>0?'Profit: $'+fmt(actualProfit):'Enter final bid below'}</div>
+      </div>
+    </div>
+
+    ${recBid>0?`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:20px">
+      <div class="mono muted" style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Bid Scenarios</div>
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        ${[
+          {label:'Conservative', pct: margin-5, color:'var(--blue2)'},
+          {label:'Recommended', pct: margin, color:'var(--amber2)'},
+          {label:'Stretch', pct: margin+5, color:'var(--green2)'}
+        ].filter(s=>s.pct>0).map(s=>{
+          const bid = subCost/(1-(s.pct/100));
+          return `<div style="flex:1;padding:12px 14px;border-right:1px solid var(--border);text-align:center">
+            <div style="font-family:'DM Mono',monospace;font-size:9px;color:${s.color};text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px">${s.label}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--cream)">${'$'+fmt(bid)}</div>
+            <div class="mono muted" style="font-size:10px">${s.pct}% margin</div>
+            <button class="btn btn-ghost btn-xs" style="margin-top:8px;font-size:10px" onclick="useBidScenario('${pid}',${bid.toFixed(2)})">Use This</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="mono" style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--amber);margin-bottom:4px">Previous Contract Value</div>
+          <div style="font-size:12px;color:var(--mist);line-height:1.5">
+            Look up the incumbent contract on
+            <a href="https://www.usaspending.gov/search" target="_blank" style="color:var(--amber2)">USASpending.gov</a> or
+            <a href="https://sam.gov/search/?index=opp" target="_blank" style="color:var(--amber2)">SAM.gov</a>
+            and enter the previous award value below.
+          </div>
+        </div>
+        ${p.prevContractSource?`<span class="mono muted" style="font-size:10px">Source: ${esc(p.prevContractSource)}</span>`:''}
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div class="form-group" style="margin-bottom:0;flex:1;min-width:160px">
+          <label class="form-label">Previous Contract Value ($)</label>
+          <input class="form-input" type="number" id="prevContractInput" value="${p.prevContractValue||''}" placeholder="e.g. 95000" oninput="updateBidPreview('${pid}')">
+        </div>
+        <div class="form-group" style="margin-bottom:0;flex:2;min-width:200px">
+          <label class="form-label">Source (USASpending, SAM.gov, etc.)</label>
+          <input class="form-input" type="text" id="prevContractSource" value="${esc(p.prevContractSource||'')}" placeholder="e.g. USASpending.gov — Award ID ABC123">
+        </div>
+      </div>
+      ${p.prevContractValue>0?`
+      <div style="margin-top:12px;display:flex;gap:20px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
+        <div>
+          <span class="meta-k">Previous Value</span><br>
+          <span class="mono" style="font-size:13px;color:var(--cream)">$${fmt(p.prevContractValue)}</span>
+        </div>
+        ${finalBid>0?`
+        <div>
+          <span class="meta-k">Your Bid vs Previous</span><br>
+          <span class="mono" style="font-size:13px;color:${finalBid<=p.prevContractValue?'var(--green2)':'var(--amber2)'}">
+            ${finalBid<=p.prevContractValue?'▼':'▲'} ${Math.abs(((finalBid-p.prevContractValue)/p.prevContractValue)*100).toFixed(1)}% ${finalBid<=p.prevContractValue?'below':'above'} previous
+          </span>
+        </div>
+        <div>
+          <span class="meta-k">Competitiveness</span><br>
+          <span class="mono" style="font-size:13px;color:${finalBid<p.prevContractValue*0.95?'var(--green2)':finalBid<p.prevContractValue*1.05?'var(--amber2)':'var(--red2)'}">
+            ${finalBid<p.prevContractValue*0.9?'Very competitive':finalBid<p.prevContractValue*0.95?'Competitive':finalBid<p.prevContractValue*1.05?'On par':'Above market'}
+          </span>
+        </div>`:''} 
+        ${recBid>0?`
+        <div>
+          <span class="meta-k">Rec. Bid vs Previous</span><br>
+          <span class="mono" style="font-size:13px;color:${recBid<=p.prevContractValue?'var(--green2)':'var(--amber2)'}">
+            ${recBid<=p.prevContractValue?'▼':'▲'} ${Math.abs(((recBid-p.prevContractValue)/p.prevContractValue)*100).toFixed(1)}%
+          </span>
+        </div>`:''}
+      </div>`:``}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Your Final Bid ($) — Manual Entry</label>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input class="form-input" type="number" id="finalBidInput" value="${finalBid||''}" placeholder="${recBid>0?Math.round(recBid):'Enter bid amount'}" oninput="updateBidPreview('${pid}')" style="max-width:200px">
+        <button class="btn btn-primary" onclick="saveFinalBid('${pid}')">Save Final Bid</button>
+        ${recBid>0?`<button class="btn btn-ghost btn-sm" onclick="document.getElementById('finalBidInput').value=${Math.round(recBid)};updateBidPreview('${pid}')">Use Recommended</button>`:''}
+      </div>
+      <div id="bidPreview" style="margin-top:10px;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)">
+        ${finalBid>0?`Final bid: $${fmt(finalBid)} · Profit: $${fmt(actualProfit)} · Margin: ${actualMargin}%`:''}
+      </div>
+    </div>
+
+    ${finalBid>0?`
+    <div style="margin-top:4px;padding:14px 18px;background:rgba(82,183,136,0.07);border:1px solid rgba(82,183,136,0.2);border-radius:8px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div><span class="meta-k">Sub Cost</span><br><span class="mono" style="color:var(--red2);font-size:14px;font-weight:700">$${fmt(subCost)}</span></div>
+        <div><span class="meta-k">Final Bid</span><br><span class="mono" style="color:var(--amber2);font-size:14px;font-weight:700">$${fmt(finalBid)}</span></div>
+        <div><span class="meta-k">Your Profit</span><br><span class="mono" style="color:var(--green2);font-size:14px;font-weight:700">$${fmt(actualProfit)}</span></div>
+        <div><span class="meta-k">Actual Margin</span><br><span class="mono" style="color:${actualMargin>=margin?'var(--green2)':'var(--amber2)'};font-size:14px;font-weight:700">${actualMargin}%</span></div>
+      </div>
+      <div class="margin-bar" style="margin-top:12px"><div class="margin-fill" style="width:${Math.min(actualMargin*3,100)}%"></div></div>
+    </div>`:''}`;
+}
+
+function updateBidPreview(pid) {
+  const input = document.getElementById('finalBidInput');
+  const preview = document.getElementById('bidPreview');
+  if (!input || !preview) return;
+  const finalBid = parseFloat(input.value)||0;
+  const awarded = S.subAssignments.find(a=>a.oppId===pid&&a.status==='awarded');
+  const subCost = parseFloat(awarded?.quotedAmount||0);
+  const prevVal = parseFloat(document.getElementById('prevContractInput')?.value)||parseFloat(S.pipeline[pid]?.prevContractValue||0);
+  if (finalBid>0&&subCost>0) {
+    const profit = finalBid-subCost;
+    const margin = ((profit/finalBid)*100).toFixed(1);
+    const color = profit>0?'var(--green2)':'var(--red2)';
+    let html = `Final bid: <span style="color:var(--amber2)">$${fmt(finalBid)}</span> · Profit: <span style="color:${color}">$${fmt(profit)}</span> · Margin: <span style="color:${color}">${margin}%</span>`;
+    if (prevVal>0) {
+      const diff = ((finalBid-prevVal)/prevVal*100).toFixed(1);
+      const diffColor = finalBid<=prevVal?'var(--green2)':'var(--amber2)';
+      html += ` · vs Previous: <span style="color:${diffColor}">${diff>0?'+':''}${diff}%</span>`;
+    }
+    preview.innerHTML = html;
+  } else if (finalBid>0) {
+    preview.innerHTML = `Final bid: <span style="color:var(--amber2)">$${fmt(finalBid)}</span>`;
+  } else {
+    preview.innerHTML = '';
+  }
+}
+
+async function saveFinalBid(pid) {
+  const finalBid = parseFloat(document.getElementById('finalBidInput')?.value)||0;
+  if (!finalBid) { toast('Enter a bid amount', true); return; }
+  if (!S.pipeline[pid]) return;
+  S.pipeline[pid].finalBid = finalBid;
+  const prevVal = parseFloat(document.getElementById('prevContractInput')?.value)||0;
+  const prevSrc = document.getElementById('prevContractSource')?.value||'';
+  if (prevVal) S.pipeline[pid].prevContractValue = prevVal;
+  if (prevSrc) S.pipeline[pid].prevContractSource = prevSrc;
+  logActivity(`Set final bid for "${trunc(S.pipeline[pid].title,30)}": $${fmt(finalBid)}`, 'var(--gold2)');
+  await save('Pipeline');
+  toast('Final bid saved ✓');
+  oppTab(pid, 'bid', null);
+}
+
+function useBidScenario(pid, amount) {
+  const input = document.getElementById('finalBidInput');
+  if (input) { input.value = Math.round(amount); updateBidPreview(pid); }
+}
+
+// ── SUB QUOTE CRUD ────────────────────────────────────────────────────────────
+function openAddQuoteModal(pid, existing) {
+  const q = existing || {};
+  const activeSubs = S.subs.filter(s=>s.status==='active');
+  const alreadyQuoting = S.subAssignments.filter(a=>a.oppId===pid&&a.assignId!==q.assignId).map(a=>a.subName);
+  openModal(existing?'Edit Sub Quote':'Add Sub Quote', `
+    <div class="form-group"><label class="form-label">Subcontractor</label>
+      <select class="form-select" id="aqSub">
+        <option value="">Select subcontractor…</option>
+        ${activeSubs.map(s=>`<option value="${esc(s.name)}" ${q.subName===s.name?'selected':''}>${esc(s.name)} — ${esc(s.trade||'')}${alreadyQuoting.includes(s.name)?' (already quoting)':''}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Scope of Work</label>
+      <textarea class="form-textarea" id="aqScope" placeholder="What will this sub perform on this opportunity?">${esc(q.scope||'')}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quoted Amount ($)</label>
+        <input class="form-input" type="number" id="aqAmount" value="${q.quotedAmount||''}" placeholder="0">
+      </div>
+      <div class="form-group"><label class="form-label">Quote Status</label>
+        <select class="form-select" id="aqStatus">
+          <option value="quoting" ${(q.status||'quoting')==='quoting'?'selected':''}>Quoting (awaiting)</option>
+          <option value="received" ${q.status==='received'?'selected':''}>Quote Received</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <input class="form-input" id="aqNotes" value="${esc(q.notes||'')}" placeholder="Lead time, exclusions, conditions…">
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="saveSubQuote('${pid}','${q.assignId||''}')">Save Quote</button>`,true);
+}
+
+async function saveSubQuote(pid, existingId) {
+  const subName = v('aqSub');
+  if (!subName) { toast('Select a subcontractor', true); return; }
+  const quote = {
+    assignId: existingId || 'SA-' + Date.now(),
+    oppId: pid,
+    contractId: '',
+    subName,
+    scope: v('aqScope'),
+    quotedAmount: parseFloat(v('aqAmount'))||0,
+    status: v('aqStatus')||'quoting',
+    notes: v('aqNotes')
+  };
+  if (existingId) {
+    const idx = S.subAssignments.findIndex(a=>a.assignId===existingId);
+    if (idx>=0) S.subAssignments[idx] = quote;
+  } else {
+    S.subAssignments.push(quote);
+    logActivity(`Added sub quote: ${subName} for "${trunc(S.pipeline[pid]?.title||'',25)}"`, 'var(--blue2)');
+  }
+  await save('SubAssignments');
+  closeModal();
+  toast(`Quote saved ✓`);
+  oppTab(pid, 'quotes', null);
+  renderPipeline();
+}
+
+async function awardSubQuote(assignId, pid) {
+  // Mark this one awarded, all others rejected
+  S.subAssignments.filter(a=>a.oppId===pid).forEach(a => {
+    if (a.assignId===assignId) { a.status='awarded'; }
+    else if (a.status!=='quoting') { a.status='rejected'; }
+    else { a.status='rejected'; }
+  });
+  const awarded = S.subAssignments.find(a=>a.assignId===assignId);
+  logActivity(`Awarded sub quote: ${awarded?.subName} $${fmt(awarded?.quotedAmount)} for "${trunc(S.pipeline[pid]?.title||'',25)}"`, 'var(--green2)');
+  await save('SubAssignments');
+  toast(`${awarded?.subName} awarded ✓`);
+  oppTab(pid, 'quotes', null);
+  renderPipeline();
+}
+
+async function unawardSubQuote(assignId, pid) {
+  S.subAssignments.filter(a=>a.oppId===pid).forEach(a => {
+    if (a.status==='awarded'||a.status==='rejected') a.status='received';
+  });
+  await save('SubAssignments');
+  toast('Award cleared — all quotes reset to Received');
+  oppTab(pid, 'quotes', null);
+  renderPipeline();
+}
+
+function editSubQuote(assignId, pid) {
+  const q = S.subAssignments.find(a=>a.assignId===assignId);
+  if (q) openAddQuoteModal(pid, q);
+}
+
+async function removeSubQuote(assignId, pid) {
+  if (!confirm('Remove this sub quote?')) return;
+  S.subAssignments = S.subAssignments.filter(a=>a.assignId!==assignId);
+  await save('SubAssignments');
+  toast('Quote removed');
+  oppTab(pid, 'quotes', null);
+  renderPipeline();
+}
+
+function renderNotesTab(p) {
+  const pid = Object.keys(S.pipeline).find(k=>S.pipeline[k]===p)||'';
+  const hasContract = S.contracts.some(c=>c.oppId===pid);
+  return `
+    <div class="form-group">
+      <label class="form-label">Opportunity Notes</label>
+      <textarea class="form-textarea" id="oppNotes" style="min-height:120px" placeholder="Strategy notes, CO conversations, bid approach…">${esc(p.notes||'')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sol. Number</label>
+      <input class="form-input" id="oppSolNum" value="${esc(p.solNum||'')}" placeholder="Solicitation number">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="saveOppNotes('${pid}')">Save Notes</button>
+      ${!hasContract
+        ? `<button class="btn btn-ghost btn-sm" onclick="document.getElementById('oppDetailOverlay')?.remove();openNewContractModal()">Convert to Contract →</button>`
+        : `<span class="badge badge-active" style="align-self:center;padding:6px 10px">✓ Contract Exists</span>`}
+    </div>`;
+}
+
+async function saveOppNotes(pid) {
+  if (S.pipeline[pid]) {
+    S.pipeline[pid].notes = v('oppNotes');
+    S.pipeline[pid].solNum = v('oppSolNum');
+    await save('Pipeline');
+    toast('Notes saved ✓');
+  }
+}
+
+function isInsExpiring(dateStr) {
+  if (!dateStr) return false;
+  const diff = (new Date(dateStr) - new Date()) / 86400000;
+  return diff >= 0 && diff <= 60;
+}
+
 
 // ══ SUBCONTRACTORS ════════════════════════════════════════════════════════════
 function renderSubs(c, ta) {
@@ -825,7 +1517,7 @@ function openSubModal(idx){
     <div class="form-row"><div class="form-group"><label class="form-label">Status</label><select class="form-select" id="sStatus"><option value="active" ${(s.status||'active')==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
     <div class="form-group"><label class="form-label">Rating (1-5)</label><input class="form-input" type="number" min="1" max="5" id="sRating" value="${s.rating||''}"></div></div>
     <div class="form-group"><label class="form-label">Notes / Certifications</label><textarea class="form-textarea" id="sNotes">${esc(s.notes||'')}</textarea></div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveSub(${idx})">Save</button>`);
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveSub(${idx})">Save</button>`,true);
 }
 
 async function saveSub(idx){
@@ -874,7 +1566,7 @@ function openQuoteModal(idx){
     <div class="form-label" style="margin-bottom:10px">Line Items</div>
     <div id="qLines">${(q.lines||[]).map((l,li)=>quoteLineHtml(li,l,subNames)).join('')}</div>
     <button class="btn btn-ghost btn-sm" onclick="addQL(${JSON.stringify(JSON.stringify(subNames))})">+ Add Line</button>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveQuote(${idx})">Save Quote</button>`);
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveQuote(${idx})">Save Quote</button>`,true);
 }
 
 function quoteLineHtml(li,l={},subs=[]){
@@ -946,7 +1638,7 @@ function openInvoiceModal(){
     <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="iDate" value="${new Date().toISOString().split('T')[0]}"></div></div>
     <div class="form-row"><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="iType"><option value="income">Income (gov payment)</option><option value="expense">Expense (sub payment)</option></select></div>
     <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="iStatus"><option value="pending">Pending</option><option value="paid">Paid</option><option value="overdue">Overdue</option></select></div></div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveInv()">Save</button>`);
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveInv()">Save</button>`,true);
 }
 
 async function saveInv(){
@@ -956,6 +1648,799 @@ async function saveInv(){
   await save('Invoices');closeModal();renderFinancials(document.getElementById('content'),document.getElementById('topbarActions'));toast('Invoice saved ✓');
 }
 async function deleteInv(i){S.invoices.splice(i,1);await save('Invoices');renderFinancials(document.getElementById('content'),document.getElementById('topbarActions'));}
+
+
+// ══ CONTRACTS ═════════════════════════════════════════════════════════════════
+function renderContracts(c, ta) {
+  ta.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openNewContractModal()">+ New Contract</button>`;
+  if (S.contracts.length === 0) {
+    c.innerHTML = `<div class="empty-state"><span class="empty-icon">📑</span><div class="empty-title">No Contracts Yet</div><div class="empty-sub">Convert a won opportunity into a contract, or create one manually.</div><div style="margin-top:16px"><button class="btn btn-primary" onclick="openNewContractModal()">+ New Contract</button></div></div>`;
+    return;
+  }
+  const active = S.contracts.filter(c=>c.status==='active').length;
+  const totalValue = S.contracts.filter(c=>c.status==='active').reduce((a,b)=>a+parseFloat(b.totalValue||0),0);
+  c.innerHTML = `
+  <div class="grid3" style="margin-bottom:20px">
+    <div class="kpi kpi-green"><div class="kpi-label">Active Contracts</div><div class="kpi-value">${active}</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label">Total Active Value</div><div class="kpi-value">$${fmt(totalValue)}</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Total Contracts</div><div class="kpi-value">${S.contracts.length}</div></div>
+  </div>
+  ${S.contracts.map((ct,i) => contractCard(ct, i)).join('')}`;
+}
+
+function contractCard(ct, i) {
+  const assigns = S.subAssignments.filter(a=>a.contractId===ct.contractId||a.oppId===ct.oppId);
+  const awardedAssigns = assigns.filter(a=>a.status==='awarded'||a.status==='active');
+  const totalSubCost = awardedAssigns.length>0
+    ? awardedAssigns.reduce((s,a)=>s+parseFloat(a.quotedAmount||0),0)
+    : assigns.filter(a=>a.status!=='rejected'&&a.status!=='quoting').reduce((s,a)=>s+parseFloat(a.quotedAmount||0),0);
+  const profit = parseFloat(ct.totalValue||0) - totalSubCost;
+  const schedule = generatePaymentSchedule(ct);
+  const nextPay = schedule.find(s=>s.status==='upcoming'||s.status==='due');
+  const statusClass = 'contract-' + (ct.status||'active').replace(' ','-');
+
+  return `<div class="contract-card ${statusClass} fade-in" style="animation-delay:${i*0.04}s">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <div>
+        <div class="contract-title">${esc(ct.title||'Untitled Contract')}</div>
+        <div class="contract-agency">${esc(ct.agency||'')}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="badge badge-${ct.status==='active'?'active':ct.status==='complete'?'won':ct.status==='terminated'?'lost':'watching'}">${ct.status||'active'}</span>
+        <button class="btn btn-ghost btn-xs" onclick="openContractDetail(${i})">Detail</button>
+        <button class="rm-btn" onclick="deleteContract(${i})">✕</button>
+      </div>
+    </div>
+
+    <div class="contract-nums">
+      <div class="contract-num"><span class="meta-k">Contract #</span><span class="mono" style="font-size:12px;color:var(--cream)">${esc(ct.contractNum||'—')}</span></div>
+      <div class="contract-num"><span class="meta-k">PO #</span><span class="mono" style="font-size:12px;color:var(--cream)">${esc(ct.poNum||'—')}</span></div>
+      <div class="contract-num"><span class="meta-k">Period</span><span class="mono" style="font-size:12px;color:var(--cream)">${fmtDate(ct.startDate)} → ${fmtDate(ct.endDate)}</span></div>
+      <div class="contract-num"><span class="meta-k">Cadence</span><span class="mono" style="font-size:12px;color:var(--cream)">${ct.paymentCadence||'monthly'}</span></div>
+    </div>
+
+    <div class="terms-grid">
+      <div class="terms-box"><div class="terms-val">$${fmt(ct.totalValue||0)}</div><div class="terms-key">Contract Value</div></div>
+      <div class="terms-box"><div class="terms-val">$${fmt(profit)}</div><div class="terms-key">Est. Profit</div></div>
+      <div class="terms-box"><div class="terms-val">${assigns.length}</div><div class="terms-key">Subs Assigned</div></div>
+    </div>
+
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">
+      <div><span class="meta-k">Gov Payment Terms</span><br><span class="mono" style="font-size:12px;color:var(--cream)">Net-${ct.netTermsGov||30}</span></div>
+      <div><span class="meta-k">Sub Payment Terms</span><br><span class="mono" style="font-size:12px;color:var(--cream)">Net-${ct.netTermsSub||30} after receipt</span></div>
+      ${ct.retainage>0?`<div><span class="meta-k">Retainage</span><br><span class="mono" style="font-size:12px;color:var(--amber2)">${ct.retainage}%</span></div>`:''}
+    </div>
+
+    ${nextPay ? `<div class="sched-item sched-${nextPay.status}"><span>Next: ${nextPay.label}</span><span style="font-weight:700">$${fmt(nextPay.amount)} · ${fmtDate(nextPay.date)}</span></div>` : ''}
+  </div>`;
+}
+
+function generatePaymentSchedule(ct) {
+  if (!ct.startDate || !ct.endDate || !ct.paymentAmount) return [];
+  const schedule = [];
+  const start = new Date(ct.startDate);
+  const end = new Date(ct.endDate);
+  const now = new Date();
+  const cadence = ct.paymentCadence || 'monthly';
+  let current = new Date(start);
+  let idx = 0;
+
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+  const addMonths = (d, n) => { const r = new Date(d); r.setMonth(r.getMonth()+n); return r; };
+
+  while (current <= end && idx < 60) {
+    const payDate = new Date(current);
+    const diff = (payDate - now) / 86400000;
+    const status = diff < -1 ? 'past' : diff <= 7 ? 'due' : 'upcoming';
+    schedule.push({ date: payDate.toISOString().split('T')[0], amount: ct.paymentAmount, status, label: `Payment ${idx+1}` });
+    if (cadence === 'weekly') current = addDays(current, 7);
+    else if (cadence === 'monthly') current = addMonths(current, 1);
+    else if (cadence === 'quarterly') current = addMonths(current, 3);
+    else break;
+    idx++;
+  }
+  return schedule;
+}
+
+function openContractDetail(i) {
+  const ct = S.contracts[i];
+  if (!ct) return;
+  const assigns = S.subAssignments.filter(a=>a.contractId===ct.contractId||a.oppId===ct.oppId);
+  const activeAssigns = assigns.filter(a=>a.status==='awarded'||a.status==='active');
+  const schedule = generatePaymentSchedule(ct);
+  const existing = document.getElementById('oppDetailOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'opp-detail-overlay';
+  overlay.id = 'oppDetailOverlay';
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="opp-detail" style="max-width:800px">
+      <div class="opp-detail-header">
+        <div>
+          <div class="opp-detail-title">${esc(ct.title)}</div>
+          <div class="opp-detail-agency">${esc(ct.agency)} · ${esc(ct.contractNum||'No contract #')}</div>
+        </div>
+        <button class="modal-close" onclick="document.getElementById('oppDetailOverlay').remove()">✕</button>
+      </div>
+      <div class="opp-tabs">
+        <button class="opp-tab active" onclick="showContractTab(${i},'schedule',this)">Payment Schedule</button>
+        <button class="opp-tab" onclick="showContractTab(${i},'subs',this)">Subcontractors</button>
+        <button class="opp-tab" onclick="showContractTab(${i},'terms',this)">Terms</button>
+      </div>
+      <div class="opp-detail-body" id="contractDetailBody">
+        ${renderContractScheduleTab(schedule, ct)}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function showContractTab(i, tab, btn) {
+  document.querySelectorAll('.opp-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const ct = S.contracts[i];
+  const assigns = S.subAssignments.filter(a=>a.contractId===ct.contractId||a.oppId===ct.oppId);
+  const schedule = generatePaymentSchedule(ct);
+  const body = document.getElementById('contractDetailBody');
+  if (tab==='schedule') body.innerHTML = renderContractScheduleTab(schedule, ct);
+  else if (tab==='subs') body.innerHTML = renderContractSubsTab(assigns, ct);
+  else body.innerHTML = renderContractTermsTab(ct, i);
+}
+
+function renderContractScheduleTab(schedule, ct) {
+  if (schedule.length===0) return `<div class="empty-state"><span class="empty-icon">📅</span><div class="empty-title">No Schedule</div><div class="empty-sub">Set start date, end date, cadence and payment amount to generate a schedule.</div></div>`;
+  const total = schedule.reduce((a,b)=>a+b.amount,0);
+  const received = schedule.filter(s=>s.status==='past').reduce((a,b)=>a+b.amount,0);
+  return `
+    <div class="grid3" style="margin-bottom:16px">
+      <div class="kpi kpi-amber" style="padding:12px 16px"><div class="kpi-label">Total Scheduled</div><div class="kpi-value" style="font-size:22px">$${fmt(total)}</div></div>
+      <div class="kpi kpi-green" style="padding:12px 16px"><div class="kpi-label">Est. Received</div><div class="kpi-value" style="font-size:22px">$${fmt(received)}</div></div>
+      <div class="kpi kpi-blue" style="padding:12px 16px"><div class="kpi-label">Remaining</div><div class="kpi-value" style="font-size:22px">$${fmt(total-received)}</div></div>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">
+      ${ct.paymentCadence} · Net-${ct.netTermsGov||30} Gov · Net-${ct.netTermsSub||30} Sub${ct.retainage>0?' · '+ct.retainage+'% retainage':''}
+    </div>
+    ${schedule.map((s,i)=>`
+    <div class="sched-item sched-${s.status}">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="color:var(--cream);font-weight:600">${s.label}</span>
+        <span style="font-size:10px;color:var(--mist)">Sub due: ${fmtDate(addDaysToDate(s.date, parseInt(ct.netTermsSub||30)))}</span>
+      </div>
+      <div style="text-align:right">
+        <div style="color:var(--amber2);font-weight:700">$${fmt(s.amount)}</div>
+        <div style="font-size:10px;color:var(--mist)">${fmtDate(s.date)}</div>
+      </div>
+    </div>`).join('')}`;
+}
+
+function renderContractSubsTab(assigns, ct) {
+  // Only count awarded/active subs for cost — exclude rejected and pending quotes
+  const activeAssigns = assigns.filter(a=>a.status==='awarded'||a.status==='active');
+  const costAssigns = activeAssigns.length>0 ? activeAssigns : assigns.filter(a=>a.status!=='rejected'&&a.status!=='quoting');
+  if (assigns.length===0) return `<div class="empty-state"><span class="empty-icon">👷</span><div class="empty-title">No Subs Assigned</div><div class="empty-sub">Subs assigned to the originating opportunity appear here automatically.</div></div>`;
+  const totalSubCost = costAssigns.reduce((s,a)=>s+parseFloat(a.quotedAmount||0),0);
+  return `
+    <div class="cost-bar" style="margin-bottom:14px">
+      <div class="cost-row"><span class="fin-label">Contract Value</span><span class="fin-amount amber">$${fmt(ct.totalValue||0)}</span></div>
+      <div class="cost-row"><span class="fin-label">Total Sub Cost</span><span class="fin-amount fin-negative">-$${fmt(totalSubCost)}</span></div>
+      <div class="cost-row"><span class="fin-label" style="font-weight:700">Est. Profit</span><span class="fin-amount fin-positive">$${fmt(parseFloat(ct.totalValue||0)-totalSubCost)}</span></div>
+    </div>
+    ${costAssigns.map(a=>{
+      const sub = S.subs.find(s=>s.name===a.subName);
+      const subPayDay = addDaysToDate(new Date().toISOString().split('T')[0], parseInt(ct.netTermsSub||30));
+      return `<div class="assign-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div><div class="assign-sub-name">${esc(a.subName)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2)">${esc(sub?.trade||'')}</div></div>
+          <span class="assign-status assign-${a.status||'proposed'}">${a.status||'proposed'}</span>
+        </div>
+        ${a.scope?`<div class="assign-scope">${esc(a.scope)}</div>`:''}
+        <div class="assign-meta">
+          <div class="assign-meta-item"><span class="meta-k">Quoted</span><span class="mono amber" style="font-size:13px;font-weight:700">$${fmt(a.quotedAmount||0)}</span></div>
+          <div class="assign-meta-item"><span class="meta-k">Pay Terms</span><span class="meta-v">Net-${ct.netTermsSub||30} after receipt</span></div>
+          <div class="assign-meta-item"><span class="meta-k">SAM Status</span><span class="meta-v">${esc(sub?.samStatus||'—')}</span></div>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function renderContractTermsTab(ct, i) {
+  return `
+    <div class="form-group"><label class="form-label">Contract Status</label>
+      <select class="form-select" id="ctStatus" onchange="updateContractStatus(${i},this.value)">
+        ${['active','on hold','complete','terminated'].map(s=>`<option value="${s}" ${(ct.status||'active')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Contract Number</label><input class="form-input" id="ctNum" value="${esc(ct.contractNum||'')}"></div>
+      <div class="form-group"><label class="form-label">PO Number</label><input class="form-input" id="ctPO" value="${esc(ct.poNum||'')}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Total Contract Value ($)</label><input class="form-input" type="number" id="ctValue" value="${ct.totalValue||0}"></div>
+      <div class="form-group"><label class="form-label">Payment Amount Per Period ($)</label><input class="form-input" type="number" id="ctPayAmt" value="${ct.paymentAmount||0}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="ctStart" value="${ct.startDate||''}"></div>
+      <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="ctEnd" value="${ct.endDate||''}"></div>
+    </div>
+    <div class="form-row3">
+      <div class="form-group"><label class="form-label">Payment Cadence</label>
+        <select class="form-select" id="ctCadence">
+          ${['weekly','monthly','quarterly','milestone','custom'].map(s=>`<option value="${s}" ${(ct.paymentCadence||'monthly')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Gov Terms (Net-?)</label><input class="form-input" type="number" id="ctNetGov" value="${ct.netTermsGov||30}" min="1" max="90"></div>
+      <div class="form-group"><label class="form-label">Sub Terms (Net-?)</label><input class="form-input" type="number" id="ctNetSub" value="${ct.netTermsSub||30}" min="1" max="90"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Retainage %</label><input class="form-input" type="number" id="ctRetainage" value="${ct.retainage||0}" min="0" max="20" style="width:100px"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ctNotes">${esc(ct.notes||'')}</textarea></div>
+    <button class="btn btn-primary btn-sm" onclick="saveContractTerms(${i})">Save Terms</button>`;
+}
+
+function openNewContractModal() {
+  const wonOpps = Object.entries(S.pipeline)
+    .filter(([,p])=>p.tag==='watching'||p.tag==='quoting'||p.tag==='submitted'||p.tag==='won')
+    .map(([pid,p])=>({pid,title:p.title,agency:p.agency}));
+  openModal('New Contract', `
+    <div class="form-group"><label class="form-label">Link to Opportunity (optional)</label>
+      <select class="form-select" id="ctOppId">
+        <option value="">— Manual entry —</option>
+        ${wonOpps.map(o=>`<option value="${o.pid}">${esc(trunc(o.title,50))}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Contract Title</label><input class="form-input" id="ctTitle" placeholder="Facilities Management — VAMC Philadelphia"></div>
+    <div class="form-group"><label class="form-label">Agency</label><input class="form-input" id="ctAgency" placeholder="Department of Veterans Affairs"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Contract Number</label><input class="form-input" id="ctNum" placeholder="36C244-24-C-0112"></div>
+      <div class="form-group"><label class="form-label">PO Number</label><input class="form-input" id="ctPO" placeholder="PO-2024-001"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Total Value ($)</label><input class="form-input" type="number" id="ctValue" placeholder="100000"></div>
+      <div class="form-group"><label class="form-label">Payment Amount Per Period ($)</label><input class="form-input" type="number" id="ctPayAmt" placeholder="8333"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="ctStart"></div>
+      <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="ctEnd"></div>
+    </div>
+    <div class="form-row3">
+      <div class="form-group"><label class="form-label">Payment Cadence</label>
+        <select class="form-select" id="ctCadence">
+          <option value="weekly">Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="milestone">Milestone</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Gov Terms (Net-?)</label><input class="form-input" type="number" id="ctNetGov" value="30" min="1" max="90"></div>
+      <div class="form-group"><label class="form-label">Sub Terms (Net-?)</label><input class="form-input" type="number" id="ctNetSub" value="30" min="1" max="90"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Retainage %</label><input class="form-input" type="number" id="ctRetainage" value="0" min="0" max="20" style="width:100px"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ctNotes" placeholder="Any contract notes…"></textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="saveNewContract()">Create Contract</button>`,true);
+
+  // Auto-fill from opp
+  document.getElementById('ctOppId').onchange = function() {
+    const opp = S.pipeline[this.value];
+    if (opp) {
+      document.getElementById('ctTitle').value = opp.title||'';
+      document.getElementById('ctAgency').value = opp.agency||'';
+    }
+  };
+}
+
+async function saveNewContract() {
+  const title = v('ctTitle');
+  if (!title) { toast('Contract title required', true); return; }
+  const ct = {
+    contractId: 'CT-' + Date.now(),
+    oppId: v('ctOppId'),
+    title,
+    agency: v('ctAgency'),
+    contractNum: v('ctNum'),
+    poNum: v('ctPO'),
+    totalValue: parseFloat(v('ctValue'))||0,
+    paymentAmount: parseFloat(v('ctPayAmt'))||0,
+    startDate: v('ctStart'),
+    endDate: v('ctEnd'),
+    paymentCadence: v('ctCadence')||'monthly',
+    netTermsGov: parseInt(v('ctNetGov'))||30,
+    netTermsSub: parseInt(v('ctNetSub'))||30,
+    retainage: parseFloat(v('ctRetainage'))||0,
+    status: 'active',
+    notes: v('ctNotes')
+  };
+  S.contracts.push(ct);
+  // Update linked sub assignments with contractId
+  if (ct.oppId) {
+    S.subAssignments.filter(a=>a.oppId===ct.oppId).forEach(a=>{ a.contractId=ct.contractId; a.status='active'; });
+    await save('SubAssignments');
+  }
+  logActivity(`Created contract: ${trunc(title,40)}`, 'var(--green2)');
+  await save('Contracts');
+  closeModal();
+  toast('Contract created ✓');
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function saveContractTerms(i) {
+  const ct = S.contracts[i];
+  if (!ct) return;
+  ct.contractNum = v('ctNum');
+  ct.poNum = v('ctPO');
+  ct.totalValue = parseFloat(v('ctValue'))||0;
+  ct.paymentAmount = parseFloat(v('ctPayAmt'))||0;
+  ct.startDate = v('ctStart');
+  ct.endDate = v('ctEnd');
+  ct.paymentCadence = v('ctCadence');
+  ct.netTermsGov = parseInt(v('ctNetGov'))||30;
+  ct.netTermsSub = parseInt(v('ctNetSub'))||30;
+  ct.retainage = parseFloat(v('ctRetainage'))||0;
+  ct.notes = v('ctNotes');
+  await save('Contracts');
+  toast('Contract terms saved ✓');
+  document.getElementById('oppDetailOverlay')?.remove();
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function updateContractStatus(i, status) {
+  if (S.contracts[i]) {
+    S.contracts[i].status = status;
+    await save('Contracts');
+    toast(`Status updated to ${status} ✓`);
+  }
+}
+
+async function deleteContract(i) {
+  if (!confirm('Delete this contract?')) return;
+  const title = S.contracts[i]?.title||'contract';
+  S.contracts.splice(i,1);
+  logActivity(`Deleted contract: ${trunc(title,40)}`, 'var(--mist)');
+  await save('Contracts');
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+  toast('Contract deleted');
+}
+
+function addDaysToDate(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+
+
+// ══ GOV PAYMENTS ══════════════════════════════════════════════════════════════
+function renderGovPayments(c, ta) {
+  ta.innerHTML = `
+    <select class="contract-filter" id="gpContractFilter" onchange="renderGovPayments(document.getElementById('content'),document.getElementById('topbarActions'))">
+      <option value="">All Contracts</option>
+      ${S.contracts.map(ct=>`<option value="${ct.contractId}">${esc(trunc(ct.title,40))}</option>`).join('')}
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="openGovPayModal()">+ Log Payment</button>`;
+
+  const filterVal = document.getElementById('gpContractFilter')?.value || '';
+  const payments = filterVal
+    ? S.govPayments.filter(p=>p.contractId===filterVal)
+    : S.govPayments;
+
+  const received = payments.filter(p=>p.status==='received').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const scheduled = payments.filter(p=>p.status==='scheduled').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const overdue = payments.filter(p=>p.status==='overdue').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const total = received + scheduled + overdue;
+
+  c.innerHTML = `
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="kpi kpi-green"><div class="kpi-label">Total Received</div><div class="kpi-value">$${fmt(received)}</div><div class="kpi-sub">${payments.filter(p=>p.status==='received').length} payments</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label">Scheduled</div><div class="kpi-value">$${fmt(scheduled)}</div><div class="kpi-sub">${payments.filter(p=>p.status==='scheduled').length} pending</div></div>
+    <div class="kpi kpi-purple"><div class="kpi-label">Overdue</div><div class="kpi-value">$${fmt(overdue)}</div><div class="kpi-sub">${payments.filter(p=>p.status==='overdue').length} overdue</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Total Tracked</div><div class="kpi-value">$${fmt(total)}</div></div>
+  </div>
+
+  ${payments.length === 0
+    ? `<div class="empty-state"><span class="empty-icon">💵</span><div class="empty-title">No Government Payments Logged</div><div class="empty-sub">Log payments received from the government against your active contracts.</div><div style="margin-top:16px"><button class="btn btn-primary" onclick="openGovPayModal()">+ Log Payment</button></div></div>`
+    : `<div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div class="section-title" style="font-size:18px">Payment Log</div>
+          <div class="mono muted" style="font-size:11px">${payments.length} payment${payments.length!==1?'s':''} · sorted newest first</div>
+        </div>
+        ${[...payments].sort((a,b)=>new Date(b.scheduledDate)-new Date(a.scheduledDate)).map((p,i) => govPayCard(p, i)).join('')}
+      </div>`}
+
+  ${S.contracts.length > 0 ? `
+  <div class="card">
+    <div class="card-title">Payment Progress by Contract</div>
+    ${S.contracts.filter(ct=>filterVal?ct.contractId===filterVal:true).map(ct => {
+      const ctPays = S.govPayments.filter(p=>p.contractId===ct.contractId);
+      const ctReceived = ctPays.filter(p=>p.status==='received').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+      const ctTotal = parseFloat(ct.totalValue||0);
+      const pct = ctTotal > 0 ? Math.min(Math.round(ctReceived/ctTotal*100),100) : 0;
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+          <span style="font-size:13px;color:var(--cream)">${esc(trunc(ct.title,45))}</span>
+          <span class="mono" style="font-size:11px;color:var(--mist)">$${fmt(ctReceived)} of $${fmt(ctTotal)} (${pct}%)</span>
+        </div>
+        <div class="margin-bar"><div class="margin-fill" style="width:${pct}%;background:${pct>=100?'var(--green2)':pct>=50?'var(--amber)':'var(--blue2)'}"></div></div>
+      </div>`;
+    }).join('')}
+  </div>` : ''}`;
+}
+
+function govPayCard(p, i) {
+  const contract = S.contracts.find(c=>c.contractId===p.contractId);
+  const statusClass = `pay-status-${p.status||'scheduled'}`;
+  const cardClass = `pay-${p.status||'scheduled'}`;
+  const daysOverdue = p.status==='overdue' && p.scheduledDate
+    ? Math.floor((new Date()-new Date(p.scheduledDate))/86400000) : 0;
+
+  return `<div class="pay-card ${cardClass} fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--cream);margin-bottom:2px">${esc(p.description||'Payment')}</div>
+        ${contract?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2)">${esc(trunc(contract.title,45))}</div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <div class="pay-amount ${p.status==='received'?'green':p.status==='overdue'?'red':'amber'}">$${fmt(p.amount||0)}</div>
+        <span class="pay-status ${statusClass}">${p.status||'scheduled'}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px">
+      <div><span class="meta-k">Scheduled</span><br><span class="mono" style="font-size:12px;color:var(--cream)">${fmtDate(p.scheduledDate)||'—'}</span></div>
+      ${p.status==='received'?`<div><span class="meta-k">Received</span><br><span class="mono" style="font-size:12px;color:var(--green2)">${fmtDate(p.receivedDate)||'—'}</span></div>`:''}
+      ${contract?`<div><span class="meta-k">Net Terms</span><br><span class="mono" style="font-size:12px;color:var(--cream)">Net-${contract.netTermsGov||30}</span></div>`:''}
+      ${daysOverdue>0?`<div><span class="meta-k">Days Overdue</span><br><span class="mono" style="font-size:12px;color:var(--red2)">${daysOverdue} days</span></div>`:''}
+    </div>
+    ${p.notes?`<div style="font-size:12px;color:var(--mist);margin-bottom:10px">${esc(p.notes)}</div>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${p.status!=='received'?`<button class="btn btn-primary btn-xs" onclick="markGovPayReceived('${p.payId}')">✓ Mark Received</button>`:''}
+      ${p.status==='scheduled'?`<button class="btn btn-danger btn-xs" onclick="markGovPayOverdue('${p.payId}')">Mark Overdue</button>`:''}
+      <button class="btn btn-ghost btn-xs" onclick="editGovPay('${p.payId}')">Edit</button>
+      <button class="rm-btn" onclick="deleteGovPay('${p.payId}')">✕</button>
+    </div>
+  </div>`;
+}
+
+function openGovPayModal(existing) {
+  const p = existing || {};
+  openModal(existing ? 'Edit Payment' : 'Log Government Payment', `
+    <div class="form-group"><label class="form-label">Contract</label>
+      <select class="form-select" id="gpContract">
+        <option value="">— Select contract —</option>
+        ${S.contracts.map(ct=>`<option value="${ct.contractId}" ${p.contractId===ct.contractId?'selected':''}>${esc(trunc(ct.title,50))}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label>
+      <input class="form-input" id="gpDesc" value="${esc(p.description||'')}" placeholder="e.g. Monthly Payment — June 2026">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount ($)</label>
+        <input class="form-input" type="number" id="gpAmount" value="${p.amount||''}" placeholder="0">
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-select" id="gpStatus">
+          ${['scheduled','received','overdue','cancelled'].map(s=>`<option value="${s}" ${(p.status||'scheduled')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Scheduled Date</label>
+        <input class="form-input" type="date" id="gpSched" value="${p.scheduledDate||''}">
+      </div>
+      <div class="form-group"><label class="form-label">Received Date</label>
+        <input class="form-input" type="date" id="gpReceived" value="${p.receivedDate||''}">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="gpNotes" placeholder="Invoice number, reference, any details…">${esc(p.notes||'')}</textarea>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="saveGovPay('${p.payId||''}')">Save Payment</button>`,true);
+}
+
+async function saveGovPay(existingId) {
+  const contractId = v('gpContract');
+  const description = v('gpDesc');
+  if (!description) { toast('Description required', true); return; }
+  const pay = {
+    payId: existingId || 'GP-' + Date.now(),
+    contractId, description,
+    amount: parseFloat(v('gpAmount'))||0,
+    status: v('gpStatus')||'scheduled',
+    scheduledDate: v('gpSched'),
+    receivedDate: v('gpReceived'),
+    notes: v('gpNotes')
+  };
+  if (existingId) {
+    const idx = S.govPayments.findIndex(p=>p.payId===existingId);
+    if (idx>=0) S.govPayments[idx] = pay;
+  } else {
+    S.govPayments.push(pay);
+    const contract = S.contracts.find(c=>c.contractId===contractId);
+    logActivity(`Logged gov payment: ${description} $${fmt(pay.amount)}`, 'var(--green2)');
+  }
+  await save('GovPayments');
+  closeModal();
+  toast('Payment saved ✓');
+  renderGovPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function markGovPayReceived(payId) {
+  const p = S.govPayments.find(p=>p.payId===payId);
+  if (p) {
+    p.status = 'received';
+    p.receivedDate = new Date().toISOString().split('T')[0];
+    logActivity(`Gov payment received: ${p.description} $${fmt(p.amount)}`, 'var(--green2)');
+    await save('GovPayments');
+    toast('Marked as received ✓');
+    renderGovPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+  }
+}
+
+async function markGovPayOverdue(payId) {
+  const p = S.govPayments.find(p=>p.payId===payId);
+  if (p) {
+    p.status = 'overdue';
+    await save('GovPayments');
+    toast('Marked as overdue');
+    renderGovPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+  }
+}
+
+function editGovPay(payId) {
+  const p = S.govPayments.find(p=>p.payId===payId);
+  if (p) openGovPayModal(p);
+}
+
+async function deleteGovPay(payId) {
+  if (!confirm('Delete this payment record?')) return;
+  S.govPayments = S.govPayments.filter(p=>p.payId!==payId);
+  await save('GovPayments');
+  toast('Payment deleted');
+  renderGovPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+
+
+// ══ SUB PAYMENTS ══════════════════════════════════════════════════════════════
+function renderSubPayments(c, ta) {
+  ta.innerHTML = `
+    <select class="contract-filter" id="spContractFilter" onchange="renderSubPayments(document.getElementById('content'),document.getElementById('topbarActions'))">
+      <option value="">All Contracts</option>
+      ${S.contracts.map(ct=>`<option value="${ct.contractId}">${esc(trunc(ct.title,40))}</option>`).join('')}
+    </select>
+    <select class="contract-filter" id="spSubFilter" onchange="renderSubPayments(document.getElementById('content'),document.getElementById('topbarActions'))">
+      <option value="">All Subs</option>
+      ${S.subs.map(s=>`<option value="${s.name}">${esc(s.name)}</option>`).join('')}
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="openSubPayModal()">+ Log Sub Payment</button>`;
+
+  const contractFilter = document.getElementById('spContractFilter')?.value||'';
+  const subFilter = document.getElementById('spSubFilter')?.value||'';
+  let payments = S.subPayments;
+  if (contractFilter) payments = payments.filter(p=>p.contractId===contractFilter);
+  if (subFilter) payments = payments.filter(p=>p.subName===subFilter);
+
+  const paid = payments.filter(p=>p.status==='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const pending = payments.filter(p=>p.status==='pending').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const overdue = payments.filter(p=>p.status==='overdue').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const waiting = payments.filter(p=>p.status==='waiting').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const totalOwed = pending + overdue + waiting;
+
+  // Cash position: gov received vs sub owed
+  const govReceived = S.govPayments.filter(p=>p.status==='received'&&(contractFilter?p.contractId===contractFilter:true)).reduce((a,b)=>a+parseFloat(b.amount||0),0);
+  const netPosition = govReceived - paid;
+
+  c.innerHTML = `
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="kpi kpi-green"><div class="kpi-label">Paid to Subs</div><div class="kpi-value">$${fmt(paid)}</div><div class="kpi-sub">${payments.filter(p=>p.status==='paid').length} payments</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label">Pending / Due</div><div class="kpi-value">$${fmt(pending+overdue)}</div><div class="kpi-sub">${payments.filter(p=>p.status==='pending'||p.status==='overdue').length} outstanding</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Waiting on Gov</div><div class="kpi-value">$${fmt(waiting)}</div><div class="kpi-sub">Pay-when-paid</div></div>
+    <div class="kpi ${netPosition>=0?'kpi-green':'kpi-purple'}"><div class="kpi-label">Your Net Position</div><div class="kpi-value">$${fmt(Math.abs(netPosition))}</div><div class="kpi-sub">${netPosition>=0?'cash positive':'cash deficit'}</div></div>
+  </div>
+
+  <div class="pwp-banner">
+    ℹ️ Pay-when-paid: sub payments with status "Waiting" are owed but held until gov payment is received.
+  </div>
+
+  ${payments.length===0
+    ? `<div class="empty-state"><span class="empty-icon">🔄</span><div class="empty-title">No Sub Payments Logged</div><div class="empty-sub">Track payments you owe to subcontractors, tied to government payment receipts.</div><div style="margin-top:16px"><button class="btn btn-primary" onclick="openSubPayModal()">+ Log Sub Payment</button></div></div>`
+    : `<div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div class="section-title" style="font-size:18px">Sub Payment Log</div>
+          <div class="mono muted" style="font-size:11px">${payments.length} payment${payments.length!==1?'s':''}</div>
+        </div>
+        ${[...payments].sort((a,b)=>new Date(b.dueDate||0)-new Date(a.dueDate||0)).map(p=>subPayCard(p)).join('')}
+      </div>`}
+
+  ${S.subs.length>0 ? `
+  <div class="card">
+    <div class="card-title">Owed by Subcontractor</div>
+    ${[...new Set(S.subPayments.filter(p=>contractFilter?p.contractId===contractFilter:true).map(p=>p.subName))].map(subName => {
+      const subPays = S.subPayments.filter(p=>p.subName===subName&&(contractFilter?p.contractId===contractFilter:true));
+      const subPaid = subPays.filter(p=>p.status==='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+      const subOwed = subPays.filter(p=>p.status!=='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
+      const sub = S.subs.find(s=>s.name===subName);
+      return `<div class="fin-row">
+        <div>
+          <div style="font-size:13px;color:var(--cream)">${esc(subName)}</div>
+          <div class="mono muted" style="font-size:10px">${esc(sub?.trade||'')}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="fin-amount ${subOwed>0?'fin-negative':'fin-positive'}">$${fmt(subOwed)} owed</div>
+          <div class="mono muted" style="font-size:10px">$${fmt(subPaid)} paid total</div>
+        </div>
+      </div>`;
+    }).join('') || '<div class="muted" style="font-size:13px;padding:10px 0">No sub payments recorded yet</div>'}
+  </div>` : ''}`;
+}
+
+function subPayCard(p) {
+  const contract = S.contracts.find(c=>c.contractId===p.contractId);
+  const govPay = p.govPayId ? S.govPayments.find(g=>g.payId===p.govPayId) : null;
+  const daysOverdue = p.status==='overdue'&&p.dueDate ? Math.floor((new Date()-new Date(p.dueDate))/86400000) : 0;
+  const cardClass = `subpay-${p.status||'pending'}`;
+  const statusClass = `subpay-status-${p.status||'pending'}`;
+
+  return `<div class="subpay-card ${cardClass} fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--cream);margin-bottom:2px">${esc(p.subName||'Unknown Sub')}</div>
+        <div style="font-size:12px;color:var(--mist)">${esc(p.description||'')}</div>
+        ${contract?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);margin-top:2px">${esc(trunc(contract.title,45))}</div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <div class="pay-amount ${p.status==='paid'?'green':p.status==='overdue'?'red':'amber'}">$${fmt(p.amount||0)}</div>
+        <span class="subpay-status ${statusClass}">${p.status==='waiting'?'waiting on gov':p.status||'pending'}</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px">
+      <div><span class="meta-k">Due Date</span><br><span class="mono" style="font-size:12px;color:${p.status==='overdue'?'var(--red2)':'var(--cream)'}">${fmtDate(p.dueDate)||'—'}</span></div>
+      ${p.status==='paid'?`<div><span class="meta-k">Paid Date</span><br><span class="mono" style="font-size:12px;color:var(--green2)">${fmtDate(p.paidDate)||'—'}</span></div>`:''}
+      ${contract?`<div><span class="meta-k">Net Terms</span><br><span class="mono" style="font-size:12px;color:var(--cream)">Net-${contract.netTermsSub||30} after receipt</span></div>`:''}
+      ${daysOverdue>0?`<div><span class="meta-k">Days Overdue</span><br><span class="mono" style="font-size:12px;color:var(--red2)">${daysOverdue} days</span></div>`:''}
+      ${govPay?`<div><span class="meta-k">Triggered by</span><br><span class="mono" style="font-size:12px;color:var(--blue2)">${esc(trunc(govPay.description,30))}</span></div>`:''}
+    </div>
+
+    ${p.notes?`<div style="font-size:12px;color:var(--mist);margin-bottom:10px">${esc(p.notes)}</div>`:''}
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${p.status!=='paid'?`<button class="btn btn-primary btn-xs" onclick="markSubPayPaid('${p.payId}')">✓ Mark Paid</button>`:''}
+      ${p.status==='waiting'?`<button class="btn btn-ghost btn-xs" onclick="markSubPayPending('${p.payId}')">Set Pending</button>`:''}
+      ${p.status==='pending'?`<button class="btn btn-danger btn-xs" onclick="markSubPayOverdue('${p.payId}')">Mark Overdue</button>`:''}
+      <button class="btn btn-ghost btn-xs" onclick="editSubPay('${p.payId}')">Edit</button>
+      <button class="rm-btn" onclick="deleteSubPay('${p.payId}')">✕</button>
+    </div>
+  </div>`;
+}
+
+function openSubPayModal(existing) {
+  const p = existing || {};
+  const activeContracts = S.contracts.filter(c=>c.status==='active');
+  openModal(existing?'Edit Sub Payment':'Log Sub Payment', `
+    <div class="form-group"><label class="form-label">Contract</label>
+      <select class="form-select" id="spContract" onchange="spPopulateSubs(this.value)">
+        <option value="">— Select contract —</option>
+        ${activeContracts.map(ct=>`<option value="${ct.contractId}" ${p.contractId===ct.contractId?'selected':''}>${esc(trunc(ct.title,50))}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Subcontractor</label>
+      <select class="form-select" id="spSub">
+        <option value="">— Select sub —</option>
+        ${S.subs.map(s=>`<option value="${s.name}" ${p.subName===s.name?'selected':''}>${esc(s.name)} · ${esc(s.trade||'')}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label>
+      <input class="form-input" id="spDesc" value="${esc(p.description||'')}" placeholder="e.g. Monthly Janitorial — June 2026">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount ($)</label>
+        <input class="form-input" type="number" id="spAmount" value="${p.amount||''}">
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-select" id="spStatus">
+          <option value="waiting" ${(p.status||'')==='waiting'?'selected':''}>Waiting on Gov Payment</option>
+          <option value="pending" ${(p.status||'pending')==='pending'?'selected':''}>Pending (Due)</option>
+          <option value="paid" ${(p.status||'')==='paid'?'selected':''}>Paid</option>
+          <option value="overdue" ${(p.status||'')==='overdue'?'selected':''}>Overdue</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Due Date</label>
+        <input class="form-input" type="date" id="spDue" value="${p.dueDate||''}">
+      </div>
+      <div class="form-group"><label class="form-label">Paid Date</label>
+        <input class="form-input" type="date" id="spPaid" value="${p.paidDate||''}">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Triggered by Gov Payment (optional)</label>
+      <select class="form-select" id="spGovPay">
+        <option value="">— Link to gov payment —</option>
+        ${S.govPayments.filter(g=>g.status==='received').map(g=>`<option value="${g.payId}" ${p.govPayId===g.payId?'selected':''}>${esc(trunc(g.description,45))} · $${fmt(g.amount)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="spNotes" placeholder="Check number, bank reference, any details…">${esc(p.notes||'')}</textarea>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="saveSubPay('${p.payId||''}')">Save Payment</button>`,true);
+}
+
+function spPopulateSubs(contractId) {
+  const assigns = S.subAssignments.filter(a=>a.contractId===contractId||a.oppId===(S.contracts.find(c=>c.contractId===contractId)?.oppId));
+  const sel = document.getElementById('spSub');
+  if (!sel || assigns.length===0) return;
+  sel.innerHTML = '<option value="">— Select sub —</option>' +
+    assigns.map(a=>`<option value="${esc(a.subName)}">${esc(a.subName)}</option>`).join('');
+}
+
+async function saveSubPay(existingId) {
+  const subName = v('spSub');
+  const description = v('spDesc');
+  if (!subName || !description) { toast('Sub and description required', true); return; }
+  const pay = {
+    payId: existingId || 'SP-' + Date.now(),
+    contractId: v('spContract'),
+    subName, description,
+    amount: parseFloat(v('spAmount'))||0,
+    status: v('spStatus')||'pending',
+    dueDate: v('spDue'),
+    paidDate: v('spPaid'),
+    govPayId: v('spGovPay'),
+    notes: v('spNotes')
+  };
+  if (existingId) {
+    const idx = S.subPayments.findIndex(p=>p.payId===existingId);
+    if (idx>=0) S.subPayments[idx] = pay;
+  } else {
+    S.subPayments.push(pay);
+    logActivity(`Logged sub payment: ${subName} $${fmt(pay.amount)}`, 'var(--blue2)');
+  }
+  await save('SubPayments');
+  closeModal();
+  toast('Sub payment saved ✓');
+  renderSubPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function markSubPayPaid(payId) {
+  const p = S.subPayments.find(p=>p.payId===payId);
+  if (p) {
+    p.status = 'paid';
+    p.paidDate = new Date().toISOString().split('T')[0];
+    logActivity(`Paid sub: ${p.subName} $${fmt(p.amount)}`, 'var(--green2)');
+    await save('SubPayments');
+    toast('Marked as paid ✓');
+    renderSubPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+  }
+}
+
+async function markSubPayPending(payId) {
+  const p = S.subPayments.find(p=>p.payId===payId);
+  if (p) { p.status='pending'; await save('SubPayments'); toast('Marked as pending'); renderSubPayments(document.getElementById('content'), document.getElementById('topbarActions')); }
+}
+
+async function markSubPayOverdue(payId) {
+  const p = S.subPayments.find(p=>p.payId===payId);
+  if (p) { p.status='overdue'; await save('SubPayments'); toast('Marked as overdue'); renderSubPayments(document.getElementById('content'), document.getElementById('topbarActions')); }
+}
+
+function editSubPay(payId) {
+  const p = S.subPayments.find(p=>p.payId===payId);
+  if (p) openSubPayModal(p);
+}
+
+async function deleteSubPay(payId) {
+  if (!confirm('Delete this sub payment record?')) return;
+  S.subPayments = S.subPayments.filter(p=>p.payId!==payId);
+  await save('SubPayments');
+  toast('Deleted');
+  renderSubPayments(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
 
 // ══ AGENCIES ══════════════════════════════════════════════════════════════════
 function renderAgencies(c,ta){
@@ -981,7 +2466,7 @@ function renderAgencies(c,ta){
 }
 
 function openAgencyModal(idx){
-  const a=idx!==undefined?S.agencies[idx]:{};const ct=(a.contacts||[{}])[0]||{};
+  const a=idx!==undefined?S.agencies[idx]:{};const ct=(a.contacts||[{}],true)[0]||{};
   openModal(idx!==undefined?'Edit Agency':'Add Agency',`
     <div class="form-row"><div class="form-group"><label class="form-label">Agency Name</label><input class="form-input" id="aName" value="${esc(a.name||'')}"></div>
     <div class="form-group"><label class="form-label">Abbreviation</label><input class="form-input" id="aAbbr" value="${esc(a.abbr||'')}"></div></div>
@@ -1033,7 +2518,7 @@ function openWLModal(){
     <div class="form-row"><div class="form-group"><label class="form-label">Outcome</label><select class="form-select" id="wOutcome"><option value="won">Won</option><option value="lost">Lost</option></select></div>
     <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="wDate" value="${new Date().toISOString().split('T')[0]}"></div></div>
     <div class="form-group"><label class="form-label">Reason / Notes</label><textarea class="form-textarea" id="wReason" placeholder="Why did you win or lose? Price? Qualifications?"></textarea></div>`,
-    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveWL()">Save</button>`);
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveWL()">Save</button>`,true);
 }
 
 async function saveWL(){
@@ -1070,9 +2555,17 @@ function renderSettings(c,ta){
       <button class="btn btn-ghost btn-sm" onclick="loadFromSheet()">↻ Force Refresh from Sheet</button>
     </div>
     <div class="setting-group">
+      <div class="setting-group-title">Data Backup</div>
+      <div style="font-size:13px;color:var(--mist);margin-bottom:14px;line-height:1.5">Export all your ERP data as a JSON backup file. Import it to restore data or transfer to another instance. Your primary data lives in Google Sheets — this is an extra safety net.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇ Export All Data (JSON)</button>
+        <button class="btn btn-ghost btn-sm" onclick="importData()">⬆ Import Data (JSON)</button>
+      </div>
+    </div>
+    <div class="setting-group">
       <div class="setting-group-title">GitHub Pages URL</div>
-      <div style="font-size:13px;color:var(--mist);line-height:1.6;margin-bottom:10px">Once you upload this file to GitHub, your ERP will be available at:<br><code style="font-family:'DM Mono',monospace;color:var(--amber2)">https://yourusername.github.io/ironwood-erp/ironwood-erp.html</code></div>
-      <div style="font-size:12px;color:var(--mist)">Bookmark that URL on every device for instant access.</div>
+      <div style="font-size:13px;color:var(--mist);line-height:1.6;margin-bottom:10px">Your ERP is live at:<br><code style="font-family:'DM Mono',monospace;color:var(--amber2)">https://cheim-byte.github.io/ironwood-erp/ironwood-erp.html</code></div>
+      <div style="font-size:12px;color:var(--mist)">Bookmark this URL on every device for instant access. All data syncs via Google Sheets automatically.</div>
     </div>
   </div>`;
 }
@@ -1091,15 +2584,81 @@ function saveSamKey(){
   toast('SAM.gov key saved ✓');
 }
 
+function exportData() {
+  const exportObj = {
+    exportDate: new Date().toISOString(),
+    version: '1.0',
+    pipeline: S.pipeline,
+    subs: S.subs,
+    quotes: S.quotes,
+    invoices: S.invoices,
+    agencies: S.agencies,
+    winloss: S.winloss,
+    subAssignments: S.subAssignments,
+    contracts: S.contracts,
+    govPayments: S.govPayments,
+    subPayments: S.subPayments,
+    settings: { company: S.settings.company, margin: S.settings.margin }
+  };
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ironwood-erp-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  toast('Data exported ✓');
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (d.pipeline) S.pipeline = d.pipeline;
+        if (d.subs) S.subs = d.subs;
+        if (d.quotes) S.quotes = d.quotes;
+        if (d.invoices) S.invoices = d.invoices;
+        if (d.agencies) S.agencies = d.agencies;
+        if (d.winloss) S.winloss = d.winloss;
+        if (d.subAssignments) S.subAssignments = d.subAssignments;
+        if (d.contracts) S.contracts = d.contracts;
+        if (d.govPayments) S.govPayments = d.govPayments;
+        if (d.subPayments) S.subPayments = d.subPayments;
+        if (d.settings) { S.settings.company = d.settings.company; S.settings.margin = d.settings.margin; }
+        await save();
+        updateBadges();
+        nav(currentView);
+        toast('Data imported and synced to Sheet ✓');
+      } catch(e) { toast('Invalid JSON file', true); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 // ══ MODAL ═════════════════════════════════════════════════════════════════════
-function openModal(title,body,footer){
+function openModal(title,body,footer,protect=false){
   document.getElementById('modalTitle').textContent=title;
   document.getElementById('modalBody').innerHTML=body;
   document.getElementById('modalFooter').innerHTML=footer;
-  document.getElementById('modalOverlay').classList.add('open');
+  const overlay = document.getElementById('modalOverlay');
+  overlay.classList.add('open');
+  overlay.dataset.protected = protect ? 'true' : 'false';
 }
-function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
-function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+function closeModal(){
+  const overlay = document.getElementById('modalOverlay');
+  overlay.classList.remove('open');
+  overlay.dataset.protected = 'false';
+}
+function closeModalOutside(e){
+  const overlay = document.getElementById('modalOverlay');
+  if(e.target===overlay && overlay.dataset.protected !== 'true') closeModal();
+}
 
 // ══ HELPERS ═══════════════════════════════════════════════════════════════════
 function v(id){const el=document.getElementById(id);return el?el.value:'';}
@@ -1115,6 +2674,19 @@ function setQ(el){const ta=document.getElementById('aiQuery');if(ta){ta.value=el
 function toast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
 
 // ══ INIT ══════════════════════════════════════════════════════════════════════
+// Defensive guards — ensure all state arrays exist even if Sheet returns empty
+if (!S.pipeline || typeof S.pipeline !== 'object') S.pipeline = {};
+if (!Array.isArray(S.subs)) S.subs = [];
+if (!Array.isArray(S.quotes)) S.quotes = [];
+if (!Array.isArray(S.invoices)) S.invoices = [];
+if (!Array.isArray(S.agencies)) S.agencies = [];
+if (!Array.isArray(S.winloss)) S.winloss = [];
+if (!Array.isArray(S.activity)) S.activity = [];
+if (!Array.isArray(S.subAssignments)) S.subAssignments = [];
+if (!Array.isArray(S.contracts)) S.contracts = [];
+if (!Array.isArray(S.govPayments)) S.govPayments = [];
+if (!Array.isArray(S.subPayments)) S.subPayments = [];
+if (!S.settings || typeof S.settings !== 'object') S.settings = { company: 'Ironwood Solutions', margin: 15, samKey: '' };
 S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
 updateBadges();
 setSyncStatus('syncing','Loading…');
