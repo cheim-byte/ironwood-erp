@@ -2819,7 +2819,7 @@ function doAuth(clientId) {
       updateDriveStatus();
     }
   });
-  client.requestAccessToken({ prompt: 'select_account' });
+  client.requestAccessToken({ prompt: 'select_account', login_hint: 'cheimmarketing@gmail.com' });
 }
 
 // Get or create ERP folder in Drive
