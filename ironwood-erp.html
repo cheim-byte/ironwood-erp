@@ -3042,11 +3042,10 @@ async function searchUSASpending(pid) {
       filters,
       fields: [
         "Award ID","Recipient Name","Award Amount","Awarding Agency",
-        "Awarding Sub Agency","Start Date","End Date",
-        "Period of Performance Current End Date",
+        "Start Date","End Date","Period of Performance Current End Date",
         "Description","NAICS Code","NAICS Description",
         "Place of Performance City Name","Place of Performance State Code",
-        "Contract Award Type"
+        "Contract Award Type","Award Category"
       ],
       sort: "Award Amount",
       order: "desc",
@@ -3092,6 +3091,9 @@ async function searchUSASpending(pid) {
 function renderUSASpendingResults(pid, awards, opp) {
   const resultEl = document.getElementById(`usaSpendingResults-${pid}`);
   if (!resultEl) return;
+
+  // Log keys to diagnose field name mismatches
+  if (awards.length > 0) console.log('USA keys:', Object.keys(awards[0]), JSON.stringify(awards[0]).slice(0,600));
 
   resultEl.innerHTML = `
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.1em">
