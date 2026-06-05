@@ -3109,6 +3109,7 @@ function renderUSASpendingResults(pid, awards, opp) {
       const zip      = a['Place of Performance Zip5']||'';
       const location = [city, state, zip].filter(Boolean).join(', ') || '—';
       const contractType = a['Contract Award Type']||'';
+      const genId = a['generated_internal_id'] || awardId;
 
       return `<div id="usa-card-${pid}-${idx}"
         style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;transition:border-color 0.18s"
@@ -3149,7 +3150,7 @@ function renderUSASpendingResults(pid, awards, opp) {
           <button class="btn btn-primary btn-sm" onclick="selectUSASpendingAward('${pid}',${amount},'${esc(awardId)}','${esc(recip.replace(/'/g,"\'"))}')">
             Use $${fmt(amount)} as Benchmark
           </button>
-          <a class="btn btn-ghost btn-sm" href="https://www.usaspending.gov/award/${esc(awardId)}" target="_blank">View on USASpending ↗</a>
+          <a class="btn btn-ghost btn-sm" href="https://www.usaspending.gov/award/${esc(genId)}" target="_blank">View on USASpending ↗</a>
         </div>
       </div>`;
     }).join('')}
