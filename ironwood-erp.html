@@ -3212,7 +3212,10 @@ Respond in JSON only, no markdown:
     const aiUrl = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
     const r = await fetch(aiUrl);
     const d = await r.json();
-    const raw = (d.content?.[0]?.text || d.text || '{}').replace(/```json|```/g,'').trim();
+    console.log('AI raw response:', JSON.stringify(d).slice(0,500));
+    const rawText = d.content?.[0]?.text || d.text || d.error || '{}';
+    const raw = rawText.replace(/```json|```/g,'').trim();
+    console.log('AI parsed text:', raw.slice(0,300));
     const result = JSON.parse(raw);
 
     const scoreColors = { 5:'var(--green2)', 4:'var(--green2)', 3:'var(--amber2)', 2:'var(--mist)', 1:'var(--muted)' };
