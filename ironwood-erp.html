@@ -837,8 +837,8 @@ async function doSearch() {
   try {
     const aiR = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:1000,
-        messages:[{role:'user',content:`Convert this government contract search to SAM.gov API params. Reply ONLY with JSON, no markdown:\n{"keywords":"2-4 search words","naicsCode":"6-digit or empty","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"one sentence"}\n\nQuery: "${q}"`}]
+      body:JSON.stringify({ model:'claude-haiku-4-5', max_tokens:150,
+        messages:[{role:'user',content:`SAM.gov search params. JSON only:\n{"keywords":"2-4 words","naicsCode":"6-digit or empty","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"1 sentence"}\nQuery:"${q}"`}]
       })
     });
     const ad = await aiR.json();
@@ -928,8 +928,8 @@ async function genSummary(pid, o) {
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:1000,
-        messages:[{role:'user',content:`1-2 sentences: summarize this federal contract opportunity for a small business prime contractor who manages subcontractors. Be direct about fit and required action.\n\nTitle: ${o.title}\nAgency: ${o.fullParentPathName||o.departmentName}\nNAICS: ${o.naicsCode}\nType: ${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc: ${trunc(o.description||'',500)}\n\nOnly the summary. No labels.`}]
+      body:JSON.stringify({ model:'claude-haiku-4-5', max_tokens:120,
+        messages:[{role:'user',content:`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`}]
       })
     });
     const d=await r.json();
@@ -1101,7 +1101,10 @@ function renderQuotesTab(pid) {
         ${lowestBid>0&&lowestBid!==highestBid?`<div><span class="meta-k">Lowest Sub Quote</span><br><span class="mono" style="font-size:14px;color:var(--green2);font-weight:700">$${fmt(lowestBid)}</span></div>`:''}
         ${awarded?`<div><span class="meta-k">Awarded To</span><br><span class="mono" style="font-size:13px;color:var(--amber2);font-weight:700">${esc(awarded.subName)}</span></div>`:''}
       </div>
-      <button class="btn btn-primary btn-sm" onclick="openAddQuoteModal('${pid}')">+ Add Sub Quote</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="openAddQuoteModal('${pid}')">+ Add Sub Quote</button>
+        <button class="btn btn-ghost btn-sm" onclick="openSubFinder('${pid}')">🔍 Find Subs</button>
+      </div>
     </div>
 
     ${quotes.length===0
@@ -1527,7 +1530,7 @@ function isInsExpiring(dateStr) {
 
 // ══ SUBCONTRACTORS ════════════════════════════════════════════════════════════
 function renderSubs(c, ta) {
-  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openSubModal()">+ Add Subcontractor</button>`;
+  ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openSubModal()">+ Add Subcontractor</button><button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openSubFinder(null)">🔍 Find Subs</button>`;
   if(S.subs.length===0){c.innerHTML=`<div class="empty-state"><span class="empty-icon">👷</span><div class="empty-title">No Subcontractors Yet</div><div class="empty-sub">Add your first subcontractor to build your team roster.</div></div>`;return;}
   c.innerHTML=`<div class="sub-grid">${S.subs.map((s,i)=>`
     <div class="sub-card fade-in" style="animation-delay:${i*0.04}s">
@@ -3003,6 +3006,332 @@ function refreshAttachSection(recordType, recordId) {
 
 
 
+
+// Related sub-trade NAICS codes for common prime NAICS codes
+const RELATED_NAICS = {
+  '541618': ['561210','561720','561730','238220','238210'], // Management consulting → facilities ops, janitorial, grounds, HVAC, electrical
+  '561210': ['561720','561730','238220','238210','561110'], // Facilities ops → janitorial, grounds, HVAC, electrical, admin
+  '561110': ['561210','541611','561320','541618'],           // Admin support → facilities, HR, staffing, consulting
+  '561720': ['561730','238220','238210','561210'],           // Janitorial → grounds, HVAC, electrical, facilities
+  '561730': ['561720','238220','238210','561210'],           // Grounds → janitorial, HVAC, electrical, facilities
+  '238220': ['238210','561720','561210','561730'],           // HVAC → electrical, janitorial, facilities, grounds
+  '238210': ['238220','561720','561210','561730'],           // Electrical → HVAC, janitorial, facilities, grounds
+  '541519': ['541512','541513','561210','541611'],           // IT support → IT consulting, help desk, facilities, HR
+  '541512': ['541519','541513','541618','561110'],           // IT consulting → IT support, help desk, mgmt, admin
+};
+
+// ══ SUB FINDER ════════════════════════════════════════════════════════════════
+
+function openSubFinder(pid) {
+  const opp = pid ? S.pipeline[pid] : null;
+  const naics = opp?.naics || '';
+  const title = opp?.title || '';
+  const agency = opp?.agency || '';
+
+  openModal('🔍 Find Subcontractors', `
+    <div style="margin-bottom:14px">
+      ${opp ? `
+      <div style="padding:10px 14px;background:rgba(196,123,43,0.07);border:1px solid rgba(196,123,43,0.2);border-radius:6px;margin-bottom:14px">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Searching for this opportunity</div>
+        <div style="font-size:13px;font-weight:600;color:var(--cream)">${esc(trunc(title,60))}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">${esc(agency)} · NAICS ${esc(naics)}</div>
+      </div>` : ''}
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Primary NAICS Code</label>
+          <input class="form-input" id="sfNaics" value="${esc(naics)}" placeholder="e.g. 561720">
+        </div>
+        <div class="form-group">
+          <label class="form-label">State</label>
+          <input class="form-input" id="sfState" placeholder="e.g. PA" maxlength="2" style="max-width:80px">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Scope Keywords (optional)</label>
+        <input class="form-input" id="sfScope" placeholder="e.g. janitorial, federal facility, medical center" value="${esc(trunc(title,80))}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Also search related trade NAICS codes</label>
+        <div id="sfRelatedNaics" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          ${(RELATED_NAICS[naics]||[]).map(n=>`
+          <label style="display:flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--cream);cursor:pointer">
+            <input type="checkbox" value="${n}" checked style="accent-color:var(--amber)"> ${n}
+          </label>`).join('') || '<span class="mono muted" style="font-size:11px">Enter a NAICS code above to see related codes</span>'}
+        </div>
+      </div>
+    </div>
+    <div id="sfResults" style="display:none"></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Close</button>
+     <button class="btn btn-primary" id="sfSearchBtn" onclick="runSubFinder('${pid||''}')">Search SAM.gov</button>`,
+    true
+  );
+
+  // Update related NAICS when primary changes
+  document.getElementById('sfNaics')?.addEventListener('input', function() {
+    const related = RELATED_NAICS[this.value.trim()] || [];
+    const el = document.getElementById('sfRelatedNaics');
+    if (el) el.innerHTML = related.length
+      ? related.map(n=>`<label style="display:flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--cream);cursor:pointer"><input type="checkbox" value="${n}" checked style="accent-color:var(--amber)"> ${n}</label>`).join('')
+      : '<span class="mono muted" style="font-size:11px">No related codes found</span>';
+  });
+}
+
+async function runSubFinder(pid) {
+  const naics = v('sfNaics').trim();
+  const state = v('sfState').trim().toUpperCase();
+  const scope = v('sfScope').trim();
+  const btn = document.getElementById('sfSearchBtn');
+  const resultsEl = document.getElementById('sfResults');
+
+  if (!naics) { toast('Enter a NAICS code', true); return; }
+  if (!state) { toast('Enter a 2-letter state code', true); return; }
+
+  // Collect checked related NAICS
+  const relatedChecked = [...document.querySelectorAll('#sfRelatedNaics input[type=checkbox]:checked')].map(el=>el.value);
+  const allNaics = [naics, ...relatedChecked];
+
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)"><div class="spinner" style="width:20px;height:20px;border-width:2px;flex-shrink:0"></div>Searching SAM.gov for registered contractors (NAICS: ${naics}, State: ${state})…</div>`;
+
+  try {
+    // Search SAM.gov for each NAICS code
+    const samKey = S.settings.samKey || localStorage.getItem('iw_sam_key') || '';
+    if (!samKey) throw new Error('SAM.gov API key not set — go to Settings to add it');
+
+    let allEntities = [];
+    for (const n of allNaics) {
+      try {
+        const url = `https://api.sam.gov/entity-information/v3/entities?api_key=${samKey}&naicsCode=${n}&stateOrProvinceCode=${state}&entityEFTIndicator=~&registrationStatus=A&purposeOfRegistrationCode=Z2&samRegistered=Yes&limit=10&offset=0`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const entities = (data.entityData || []).map(e => ({ ...e, _searchNaics: n }));
+        allEntities = allEntities.concat(entities);
+      } catch(e) { /* skip this NAICS */ }
+    }
+
+    // Deduplicate by UEI
+    const seen = new Set();
+    allEntities = allEntities.filter(e => {
+      const uei = e.entityRegistration?.ueiSAM;
+      if (!uei || seen.has(uei)) return false;
+      seen.add(uei);
+      return true;
+    });
+
+    if (allEntities.length === 0) {
+      resultsEl.innerHTML = `<div style="padding:12px;background:rgba(107,122,153,0.08);border:1px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">No registered contractors found for NAICS ${naics} in ${state}. Try a neighboring state or check the NAICS code.</div>`;
+      btn.disabled = false; btn.textContent = 'Search SAM.gov';
+      return;
+    }
+
+    // Show initial results while AI enriches
+    renderSubFinderResults(pid, allEntities, naics, scope, false);
+    btn.disabled = false; btn.textContent = 'Search Again';
+
+    // AI enrichment — analyze each entity for fit + competitor risk
+    enrichSubFinderResults(pid, allEntities, naics, scope);
+
+  } catch(e) {
+    resultsEl.innerHTML = `<div style="padding:10px 14px;background:rgba(230,57,70,0.07);border:1px solid rgba(230,57,70,0.2);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--red2)">Search failed: ${esc(e.message)}</div>`;
+    btn.disabled = false; btn.textContent = 'Search SAM.gov';
+  }
+}
+
+function renderSubFinderResults(pid, entities, primaryNaics, scope, enriched) {
+  const resultsEl = document.getElementById('sfResults');
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">
+      ${entities.length} registered contractors found — ${enriched ? 'AI analysis complete' : 'analyzing fit…'}
+    </div>
+    ${entities.map((e, idx) => {
+      const reg = e.entityRegistration || {};
+      const core = e.coreData || {};
+      const name = reg.legalBusinessName || '—';
+      const uei = reg.ueiSAM || '';
+      const city = core.physicalAddress?.city || '';
+      const state = core.physicalAddress?.stateOrProvinceCode || '';
+      const zip = core.physicalAddress?.zipCode || '';
+      const location = [city, state, zip].filter(Boolean).join(', ');
+      const entityNaics = (e.assertions?.naicsCode?.naicsCode || []).map(n=>n.naicsCode).join(', ');
+      const bizTypes = (reg.businessTypes?.businessTypeList || []).map(b=>b.businessTypeDesc).filter(Boolean);
+      const isPrimary = e._searchNaics === primaryNaics;
+      const expiry = reg.registrationExpirationDate || '';
+
+      // Business type badges
+      const typeTags = bizTypes.slice(0,3).map(t => {
+        const color = t.includes('Small') ? 'var(--blue2)' : t.includes('Woman') ? 'var(--purple2)' : t.includes('Veteran') || t.includes('Service') ? 'var(--green2)' : t.includes('8(a)') ? 'var(--amber2)' : 'var(--mist)';
+        return `<span style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.05);color:${color};border:1px solid ${color}22">${t.replace('Business','').replace('Concern','').trim()}</span>`;
+      }).join('');
+
+      return `<div id="sfcard-${idx}" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;transition:border-color 0.18s" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
+
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 16px 8px;flex-wrap:wrap">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:var(--cream);margin-bottom:3px">${esc(name)}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:6px">${esc(location)} · UEI: ${esc(uei)}</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">${typeTags}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:${isPrimary?'var(--amber2)':'var(--blue2)'}">${isPrimary?'Primary NAICS':'Related NAICS'} ${esc(e._searchNaics)}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green2)">SAM Active</div>
+            ${expiry?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist)">Exp: ${fmtDate(expiry)}</div>`:''}
+          </div>
+        </div>
+
+        <!-- NAICS codes -->
+        ${entityNaics?`<div style="padding:0 16px 8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--mist)">NAICS: ${esc(trunc(entityNaics,80))}</div>`:''}
+
+        <!-- AI analysis placeholder -->
+        <div id="sfai-${idx}" style="margin:0 16px 10px;padding:8px 12px;background:rgba(196,123,43,0.05);border-left:2px solid var(--amber);border-radius:0 4px 4px 0;font-size:12px;color:var(--mist);font-style:italic">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);font-style:normal;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
+          <span>● Analyzing fit and checking for contact info…</span>
+        </div>
+
+        <!-- Actions (shown after AI enrichment) -->
+        <div id="sfactions-${idx}" style="padding:8px 16px 12px;border-top:1px solid rgba(255,255,255,0.04);display:none">
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+async function enrichSubFinderResults(pid, entities, primaryNaics, scope) {
+  const opp = pid ? S.pipeline[pid] : null;
+
+  for (let idx = 0; idx < entities.length; idx++) {
+    const e = entities[idx];
+    const reg = e.entityRegistration || {};
+    const core = e.coreData || {};
+    const name = reg.legalBusinessName || '';
+    const uei = reg.ueiSAM || '';
+    const city = core.physicalAddress?.city || '';
+    const state = core.physicalAddress?.stateOrProvinceCode || '';
+    const entityNaics = (e.assertions?.naicsCode?.naicsCode || []).map(n=>n.naicsCode).join(', ');
+    const bizTypes = (reg.businessTypes?.businessTypeList || []).map(b=>b.businessTypeDesc).filter(Boolean).join(', ');
+    const isPrimary = e._searchNaics === primaryNaics;
+
+    const aiEl = document.getElementById(`sfai-${idx}`);
+    const actionsEl = document.getElementById(`sfactions-${idx}`);
+    if (!aiEl) continue;
+
+    try {
+      const prompt = `SAM.gov sub analysis. JSON only:
+{"fitScore":<1-5>,"fitLabel":"<Excellent|Good|Fair|Poor> Sub Fit","competitorRisk":"<low|medium|high>","competitorNote":"<1 reason>","website":"<url or empty>","email":"<email or empty>","phone":"<phone or empty>","fitNote":"<1 sentence>"}
+
+Sub: ${name} | ${city},${state} | NAICS:${entityNaics} | Types:${bizTypes}
+${opp?`Opp: ${trunc(opp.title,60)} | ${opp.agency} | NAICS ${opp.naics}`:`Scope: ${trunc(scope,80)}`}`;
+
+      const payload = encodeURIComponent(JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }]
+      }));
+      const url = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const rawText = d.content?.[0]?.text || d.text || '';
+      if (!rawText || d.error) throw new Error('No AI response');
+      const result = JSON.parse(rawText.replace(/```json|```/g,'').trim());
+
+      // Skip if no contact info found
+      if (!result.email && !result.phone && !result.website) {
+        if (aiEl) aiEl.innerHTML = `<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No contact info found — skipped</span>`;
+        if (actionsEl) actionsEl.style.display = 'none';
+        document.getElementById(`sfcard-${idx}`)?.style.setProperty('opacity','0.4');
+        continue;
+      }
+
+      const fitColors = { 5:'var(--green2)', 4:'var(--green2)', 3:'var(--amber2)', 2:'var(--mist)', 1:'var(--muted)' };
+      const riskColors = { low:'var(--green2)', medium:'var(--amber2)', high:'var(--red2)' };
+      const stars = '★'.repeat(result.fitScore||0) + '☆'.repeat(5-(result.fitScore||0));
+
+      if (aiEl) aiEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:${fitColors[result.fitScore]||'var(--mist)'}">${stars}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:${fitColors[result.fitScore]||'var(--mist)'}">${esc(result.fitLabel||'')}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.04);color:${riskColors[result.competitorRisk]||'var(--mist)'};border:1px solid ${riskColors[result.competitorRisk]||'var(--mist)'}22">
+            ${result.competitorRisk==='high'?'⚠ ':''}Competitor Risk: ${result.competitorRisk||'unknown'}
+          </span>
+        </div>
+        <div style="font-size:12px;color:var(--mist);line-height:1.5;margin-bottom:4px">${esc(result.fitNote||'')}</div>
+        ${result.competitorNote?`<div style="font-size:11px;color:${riskColors[result.competitorRisk]||'var(--mist)'}">⚠ ${esc(result.competitorNote)}</div>`:''}
+        <div style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
+          ${result.website?`<span class="mono muted" style="font-size:11px">🌐 <a href="${esc(result.website)}" target="_blank" style="color:var(--amber2)">${esc(result.website)}</a></span>`:''}
+          ${result.email?`<span class="mono muted" style="font-size:11px">✉️ ${esc(result.email)}</span>`:''}
+          ${result.phone?`<span class="mono muted" style="font-size:11px">📞 ${esc(result.phone)}</span>`:''}
+        </div>`;
+
+      if (actionsEl) {
+        actionsEl.style.display = 'flex';
+        actionsEl.style.gap = '8px';
+        actionsEl.style.flexWrap = 'wrap';
+        actionsEl.innerHTML = `
+          <button class="btn btn-primary btn-sm" onclick="addSubFromFinder(${idx},'${esc(name.replace(/'/g,"\'"))}','${esc(result.website||'')}','${esc(result.email||'')}','${esc(result.phone||'')}','${e._searchNaics}','${pid||''}')">
+            + Add to Roster${pid?' & Quote':''}
+          </button>
+          <a class="btn btn-ghost btn-sm" href="https://www.sam.gov/entity/${uei}/core" target="_blank">View on SAM.gov ↗</a>`;
+      }
+
+    } catch(err) {
+      if (aiEl) aiEl.innerHTML = `<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Analysis unavailable</span>`;
+    }
+  }
+}
+
+async function addSubFromFinder(idx, name, website, email, phone, naics, pid) {
+  // Check if already in roster
+  const existing = S.subs.find(s=>s.name.toLowerCase()===name.toLowerCase());
+  if (!existing) {
+    const newSub = {
+      name, trade: '', phone, email, naics,
+      samStatus: 'Active', insExpiry: '', status: 'active',
+      rating: 0, notes: `Added via Sub Finder. Website: ${website||'—'}`
+    };
+    S.subs.push(newSub);
+    await save('Subcontractors');
+    toast(`${trunc(name,30)} added to roster ✓`);
+    logActivity(`Added sub from finder: ${trunc(name,35)}`, 'var(--blue2)');
+  } else {
+    toast(`${trunc(name,25)} already in roster`);
+  }
+
+  // Add sub quote to opportunity if we came from one
+  if (pid && S.pipeline[pid]) {
+    const alreadyQuoting = S.subAssignments.some(a=>a.oppId===pid&&a.subName===name);
+    if (!alreadyQuoting) {
+      const quote = {
+        assignId: 'SA-' + Date.now(),
+        oppId: pid, contractId: '', subName: name,
+        scope: '', quotedAmount: 0, status: 'quoting',
+        notes: 'Added via Sub Finder — contact for quote'
+      };
+      S.subAssignments.push(quote);
+      await save('SubAssignments');
+      toast(`Sub quote created for ${trunc(name,25)} — contact to get their number`);
+      // Refresh the quotes tab
+      oppTab(pid, 'quotes', null);
+    } else {
+      toast(`${trunc(name,25)} already has a quote on this opportunity`);
+    }
+  }
+
+  // Update button to show added
+  const actionsEl = document.getElementById(`sfactions-${idx}`);
+  if (actionsEl) {
+    const btn = actionsEl.querySelector('.btn-primary');
+    if (btn) { btn.textContent = '✓ Added'; btn.disabled = true; btn.style.opacity='0.6'; }
+  }
+
+  // Refresh subcontractors if we're on that view
+  if (currentView === 'subs') renderSubs(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
 // ══ USASPENDING.GOV API ════════════════════════════════════════════════════════
 
 async function searchUSASpending(pid) {
@@ -3178,36 +3507,17 @@ async function generateUSAAISummary(pid, idx, award, opp) {
   const contractType = award['Contract Award Type']||'';
 
   try {
-    const prompt = `You are a government contracting analyst. Rate and analyze how relevant this previous contract is as a benchmark for the current opportunity.
+    const prompt = `Rate this previous contract as a pricing benchmark. JSON only:
+{"score":<1-5>,"scoreLabel":"<Very Relevant|Relevant|Somewhat Relevant|Low Relevance|Not Relevant>","summary":"<2 sentences>","pricingInsight":"<1 sentence>"}
 
-CURRENT OPPORTUNITY:
-Title: ${opp.title||''}
-Agency: ${opp.agency||''}
-NAICS: ${opp.naics||''} 
-Deadline: ${opp.deadline||''}
-
-PREVIOUS CONTRACT FOUND:
-Recipient: ${recip}
-Awarding Agency: ${agency}
-Amount: $${fmt(amount)}
-Location: ${city}, ${state}
-Period: ${start} to ${end}
-NAICS Description: ${naicsDesc}
-Contract Type: ${contractType}
-Description: ${desc.slice(0,300)}
-
-Respond in JSON only, no markdown:
-{
-  "score": <1-5 integer, 5=very relevant>,
-  "scoreLabel": "<Very Relevant|Relevant|Somewhat Relevant|Low Relevance|Not Relevant>",
-  "summary": "<2 sentences: what this contract was for and how relevant it is as a pricing benchmark>",
-  "pricingInsight": "<1 sentence: what the $amount tells you about market pricing for this type of work>"
-}`;
+Opp: ${opp.title||''} | ${opp.agency||''} | NAICS ${opp.naics||''}
+Contract: ${recip} | ${agency} | $${fmt(amount)} | ${start}→${end} | ${state} | ${naicsDesc} | ${contractType}
+Desc: ${desc.slice(0,150)}`;
 
     // Use GET request — Apps Script GET doesn't have CORS issues unlike POST
     const payload = encodeURIComponent(JSON.stringify({
       model: 'claude-haiku-4-5',
-      max_tokens: 1000,
+      max_tokens: 300,
       messages: [{ role: 'user', content: prompt }]
     }));
     const aiUrl = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
