@@ -255,6 +255,22 @@ a:hover{text-decoration:underline}
 
 
 
+
+/* ATTACHMENTS */
+.attach-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.attach-title{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--amber);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.attach-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.attach-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;transition:all 0.18s}
+.attach-item:hover{border-color:var(--border2)}
+.attach-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+.attach-name{flex:1;font-size:13px;color:var(--cream);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attach-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);flex-shrink:0}
+.attach-actions{display:flex;gap:4px;flex-shrink:0}
+.attach-upload-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;background:rgba(196,123,43,0.08);border:1px dashed rgba(196,123,43,0.3);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--amber2);cursor:pointer;transition:all 0.18s;width:100%}
+.attach-upload-btn:hover{background:rgba(196,123,43,0.14);border-color:rgba(196,123,43,0.5)}
+.attach-uploading{opacity:0.6;cursor:not-allowed}
+.drive-not-connected{font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);padding:8px 12px;background:rgba(107,122,153,0.08);border:1px solid rgba(107,122,153,0.15);border-radius:6px}
+
 /* SUB PAYMENTS */
 .subpay-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;transition:all 0.18s;position:relative;overflow:hidden}
 .subpay-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
@@ -413,6 +429,7 @@ const S = {
   contracts: [],
   govPayments: [],
   subPayments: [],
+  attachments: [],
   settings: { company: 'Ironwood Solutions', margin: 15, samKey: '' }
 };
 
@@ -425,11 +442,30 @@ let syncing = false;
 const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss / Pass' };
 const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
 const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
-const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments'];
+const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments'];
 
 
 
 
+
+
+// Attachments serialization
+function attachmentsToRows() {
+  const rows = [['attachId','recordType','recordId','fileName','fileType','driveFileId','driveUrl','uploadDate','uploadedBy']];
+  S.attachments.forEach(a => rows.push([
+    a.attachId||'', a.recordType||'', a.recordId||'', a.fileName||'',
+    a.fileType||'', a.driveFileId||'', a.driveUrl||'',
+    a.uploadDate||'', a.uploadedBy||''
+  ]));
+  return rows;
+}
+function rowsToAttachments(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    attachId:r[0], recordType:r[1], recordId:r[2], fileName:r[3],
+    fileType:r[4], driveFileId:r[5], driveUrl:r[6],
+    uploadDate:r[7], uploadedBy:r[8]||''
+  }));
+}
 
 // SubPayments serialization
 function subPaymentsToRows() {
@@ -603,7 +639,8 @@ async function syncToSheet(tab) {
     SubAssignments: subAssignmentsToRows,
     Contracts: contractsToRows,
     GovPayments: govPaymentsToRows,
-    SubPayments: subPaymentsToRows
+    SubPayments: subPaymentsToRows,
+    Attachments: attachmentsToRows
   };
   if (map[tab]) await sheetWrite(tab, map[tab]());
 }
@@ -613,7 +650,7 @@ async function loadFromSheet() {
   try {
     // Load all tabs in parallel, fall back to empty arrays on individual tab failures
     const safe = async (tab, fallback) => { try { return await sheetRead(tab); } catch(e) { console.warn(`Tab load failed: ${tab}`, e.message); return fallback; } };
-    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay] = await Promise.all([
+    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay, attachs] = await Promise.all([
       safe('Pipeline', [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource']]),
       safe('Subcontractors', [['name','trade','phone','email','naics','samStatus','insExpiry','status','rating','notes']]),
       safe('Quotes', [['name','opportunity','marginPct','created','lines']]),
@@ -626,6 +663,7 @@ async function loadFromSheet() {
       safe('Contracts', [['contractId','oppId','title','agency','contractNum','poNum','totalValue','startDate','endDate','status','paymentCadence','paymentAmount','paymentDay','netTermsGov','netTermsSub','retainage','notes']]),
       safe('GovPayments', [['payId','contractId','description','scheduledDate','receivedDate','amount','status','notes']]),
       safe('SubPayments', [['payId','contractId','subName','description','dueDate','paidDate','amount','status','govPayId','notes']]),
+      safe('Attachments', [['attachId','recordType','recordId','fileName','fileType','driveFileId','driveUrl','uploadDate','uploadedBy']]),
     ]);
     S.pipeline = rowsToPipeline(pipe);
     S.subs = rowsToSubs(subs);
@@ -639,6 +677,7 @@ async function loadFromSheet() {
     S.contracts = rowsToContracts(contracts);
     S.govPayments = rowsToGovPayments(govpay);
     S.subPayments = rowsToSubPayments(subpay);
+    S.attachments = rowsToAttachments(attachs);
     S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
     setSyncStatus('live', 'Synced');
     updateBadges();
@@ -1460,7 +1499,8 @@ function renderNotesTab(p) {
       ${!hasContract
         ? `<button class="btn btn-ghost btn-sm" onclick="document.getElementById('oppDetailOverlay')?.remove();openNewContractModal()">Convert to Contract →</button>`
         : `<span class="badge badge-active" style="align-self:center;padding:6px 10px">✓ Contract Exists</span>`}
-    </div>`;
+    </div>
+    ${renderAttachSection('opportunity', pid)}`;
 }
 
 async function saveOppNotes(pid) {
@@ -1501,6 +1541,7 @@ function renderSubs(c, ta) {
         <button class="btn btn-ghost btn-xs" onclick="openSubModal(${i})">Edit</button>
         <button class="btn btn-danger btn-xs" onclick="deleteSub(${i})">Remove</button>
       </div>
+      ${renderAttachSection('subcontractor', s.name.replace(/[^a-z0-9]/gi,'_'))}
     </div>`).join('')}</div>`;
 }
 
@@ -1551,6 +1592,7 @@ function renderPricing(c, ta) {
       </div>
       <div class="margin-bar"><div class="margin-fill" style="width:${Math.min(pct*3,100)}%"></div></div>
       ${(q.lines||[]).length>0?`<div class="divider"></div><table class="table"><thead><tr><th>Description</th><th>Sub</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody>${(q.lines||[]).map(l=>`<tr><td>${esc(l.desc||'')}</td><td class="mono muted" style="font-size:11px">${esc(l.sub||'')}</td><td class="mono" style="text-align:right">${l.qty||1}</td><td class="mono" style="text-align:right">$${fmt(l.rate||0)}</td><td class="mono amber" style="text-align:right">$${fmt(l.total||0)}</td></tr>`).join('')}</tbody></table>`:''}
+      ${renderAttachSection('quote', ('q'+i+'_'+(q.name||'').replace(/[^a-z0-9]/gi,'_').slice(0,20)))}
     </div>`;
   }).join('');
 }
@@ -1712,6 +1754,7 @@ function contractCard(ct, i) {
     </div>
 
     ${nextPay ? `<div class="sched-item sched-${nextPay.status}"><span>Next: ${nextPay.label}</span><span style="font-weight:700">$${fmt(nextPay.amount)} · ${fmtDate(nextPay.date)}</span></div>` : ''}
+    ${renderAttachSection('contract', ct.contractId)}
   </div>`;
 }
 
@@ -2100,6 +2143,7 @@ function govPayCard(p, i) {
       <button class="btn btn-ghost btn-xs" onclick="editGovPay('${p.payId}')">Edit</button>
       <button class="rm-btn" onclick="deleteGovPay('${p.payId}')">✕</button>
     </div>
+    ${renderAttachSection('govpayment', p.payId)}
   </div>`;
 }
 
@@ -2314,6 +2358,7 @@ function subPayCard(p) {
       <button class="btn btn-ghost btn-xs" onclick="editSubPay('${p.payId}')">Edit</button>
       <button class="rm-btn" onclick="deleteSubPay('${p.payId}')">✕</button>
     </div>
+    ${renderAttachSection('subpayment', p.payId)}
   </div>`;
 }
 
@@ -2462,6 +2507,7 @@ function renderAgencies(c,ta){
         <button class="btn btn-ghost btn-xs" onclick="openAgencyModal(${i})">Edit</button>
         <button class="btn btn-danger btn-xs" onclick="deleteAgency(${i})">Remove</button>
       </div>
+      ${renderAttachSection('agency', a.name.replace(/[^a-z0-9]/gi,'_'))}
     </div>`).join('')}</div>`;
 }
 
@@ -2546,6 +2592,28 @@ function renderSettings(c,ta){
       <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="saveSamKey()">Save Key</button>
     </div>
     <div class="setting-group">
+      <div class="setting-group-title">Google Drive — File Attachments</div>
+      <div style="font-size:13px;color:var(--mist);margin-bottom:14px;line-height:1.6">
+        Attach files directly from the ERP to any record. Files upload to your Google Drive automatically.<br><br>
+        <strong style="color:var(--amber2)">Setup required:</strong> Enable Google Drive API and create an OAuth Client ID at
+        <a href="https://console.cloud.google.com" target="_blank" style="color:var(--amber2)">Google Cloud Console</a>.
+        Set the authorized JavaScript origin to <code style="font-family:'DM Mono',monospace;color:var(--cream)">https://cheim-byte.github.io</code>
+      </div>
+      <div class="form-group"><label class="form-label">Google OAuth Client ID</label>
+        <input class="form-input" id="setClientId" value="${esc(S.settings.driveClientId||'')}" placeholder="xxxx.apps.googleusercontent.com">
+        <div style="font-size:11px;color:var(--mist);margin-top:6px">Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID</div>
+      </div>
+      <div class="form-group"><label class="form-label">Drive Folder Name</label>
+        <input class="form-input" id="setFolderName" value="${esc(S.settings.driveFolderName||'Ironwood ERP Attachments')}" placeholder="Ironwood ERP Attachments">
+        <div style="font-size:11px;color:var(--mist);margin-top:6px">Files will be organized into subfolders by record type</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="saveDriveSettings()">Save Drive Settings</button>
+        <button class="btn btn-ghost btn-sm" id="driveAuthBtn" onclick="initDriveAuth()">Connect Google Drive</button>
+        <span id="driveAuthStatus" style="font-family:'DM Mono',monospace;font-size:11px;align-self:center;color:var(--mist)"></span>
+      </div>
+    </div>
+    <div class="setting-group">
       <div class="setting-group-title">Google Sheets Connection</div>
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border-radius:6px;margin-bottom:12px">
         <div class="sync-dot live"></div>
@@ -2575,6 +2643,15 @@ async function saveSettings(){
   S.settings.margin=parseFloat(v('setMargin'))||15;
   await save('Settings');toast('Settings saved ✓');
   document.querySelector('.logo-mark').textContent=S.settings.company.split(' ')[0];
+}
+
+function saveDriveSettings(){
+  S.settings.driveClientId=v('setClientId');
+  S.settings.driveFolderName=v('setFolderName')||'Ironwood ERP Attachments';
+  localStorage.setItem('iw_drive_client_id', S.settings.driveClientId);
+  localStorage.setItem('iw_drive_folder', S.settings.driveFolderName);
+  toast('Drive settings saved ✓');
+  updateDriveStatus();
 }
 
 function saveSamKey(){
@@ -2673,6 +2750,244 @@ function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrol
 function setQ(el){const ta=document.getElementById('aiQuery');if(ta){ta.value=el.textContent;autoResize(ta);}}
 function toast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
 
+
+// ══ ATTACHMENTS ENGINE ════════════════════════════════════════════════════════
+
+// File type → emoji icon
+function fileIcon(name) {
+  const ext = (name||'').split('.').pop().toLowerCase();
+  const map = {
+    pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊',
+    ppt:'📋', pptx:'📋', jpg:'🖼️', jpeg:'🖼️', png:'🖼️',
+    gif:'🖼️', mp4:'🎬', mov:'🎬', zip:'📦', rar:'📦',
+    txt:'📃', csv:'📊', eml:'✉️', msg:'✉️'
+  };
+  return map[ext] || '📎';
+}
+
+// Drive Auth State
+let driveAccessToken = null;
+let driveTokenExpiry = 0;
+
+function isDriveConnected() {
+  return driveAccessToken && Date.now() < driveTokenExpiry;
+}
+
+function updateDriveStatus() {
+  const btn = document.getElementById('driveAuthBtn');
+  const status = document.getElementById('driveAuthStatus');
+  if (!btn) return;
+  if (isDriveConnected()) {
+    btn.textContent = '✓ Drive Connected';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.style.color = 'var(--green2)';
+    if (status) status.textContent = 'Authorized — ready to upload';
+  } else {
+    btn.textContent = 'Connect Google Drive';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.style.color = '';
+    if (status) status.textContent = '';
+  }
+}
+
+function initDriveAuth() {
+  const clientId = S.settings.driveClientId || localStorage.getItem('iw_drive_client_id');
+  if (!clientId) {
+    toast('Add your OAuth Client ID in Drive Settings first', true);
+    return;
+  }
+  // Load Google Identity Services
+  if (!window.google?.accounts?.oauth2) {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.onload = () => doAuth(clientId);
+    document.head.appendChild(script);
+  } else {
+    doAuth(clientId);
+  }
+}
+
+function doAuth(clientId) {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: (resp) => {
+      if (resp.error) { toast('Drive auth failed: ' + resp.error, true); return; }
+      driveAccessToken = resp.access_token;
+      driveTokenExpiry = Date.now() + (resp.expires_in * 1000);
+      toast('Google Drive connected ✓');
+      updateDriveStatus();
+    }
+  });
+  client.requestAccessToken({ prompt: 'select_account' });
+}
+
+// Get or create ERP folder in Drive
+async function getDriveFolderId(subfolder) {
+  const folderName = S.settings.driveFolderName || localStorage.getItem('iw_drive_folder') || 'Ironwood ERP Attachments';
+  const fullName = subfolder ? `${folderName}/${subfolder}` : folderName;
+
+  // Search for existing folder
+  const search = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(folderName)}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${driveAccessToken}` } }
+  );
+  const sd = await search.json();
+  let parentId = sd.files?.[0]?.id;
+
+  // Create parent folder if missing
+  if (!parentId) {
+    const create = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder' })
+    });
+    const cd = await create.json();
+    parentId = cd.id;
+  }
+
+  if (!subfolder) return parentId;
+
+  // Search for subfolder
+  const search2 = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(subfolder)}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${driveAccessToken}` } }
+  );
+  const sd2 = await search2.json();
+  if (sd2.files?.[0]?.id) return sd2.files[0].id;
+
+  // Create subfolder
+  const create2 = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: subfolder, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] })
+  });
+  const cd2 = await create2.json();
+  return cd2.id;
+}
+
+// Upload file to Drive
+async function uploadToDrive(file, subfolder) {
+  const folderId = await getDriveFolderId(subfolder);
+
+  // Create metadata
+  const metadata = { name: file.name, parents: [folderId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', file);
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',
+    { method: 'POST', headers: { Authorization: `Bearer ${driveAccessToken}` }, body: form }
+  );
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  return await res.json(); // { id, name, webViewLink }
+}
+
+// Delete file from Drive
+async function deleteFromDrive(fileId) {
+  if (!driveAccessToken) return;
+  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${driveAccessToken}` } }
+  );
+}
+
+// Render attachments section for any record
+function renderAttachSection(recordType, recordId) {
+  const attachs = S.attachments.filter(a=>a.recordType===recordType&&a.recordId===recordId);
+  const connected = isDriveConnected();
+  const sectionId = `attach-${recordType}-${recordId}`;
+
+  return `<div class="attach-section" id="${sectionId}">
+    <div class="attach-title">
+      <span>📎 Attachments (${attachs.length})</span>
+    </div>
+    ${attachs.length > 0 ? `<div class="attach-list">
+      ${attachs.map(a=>`
+        <div class="attach-item">
+          <span class="attach-icon">${fileIcon(a.fileName)}</span>
+          <a class="attach-name" href="${esc(a.driveUrl)}" target="_blank" title="${esc(a.fileName)}">${esc(a.fileName)}</a>
+          <span class="attach-meta">${fmtDate(a.uploadDate)}</span>
+          <div class="attach-actions">
+            <a class="btn btn-ghost btn-xs" href="${esc(a.driveUrl)}" target="_blank">Open</a>
+            <button class="btn btn-danger btn-xs" onclick="deleteAttach('${a.attachId}','${recordType}','${recordId}')">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+    ${connected
+      ? `<button class="attach-upload-btn" onclick="triggerAttachUpload('${recordType}','${recordId}')">
+          <span>⬆</span> Attach File
+        </button>`
+      : `<div class="drive-not-connected">
+          Google Drive not connected — go to <button class="btn btn-ghost btn-xs" onclick="nav('settings')">Settings → Drive</button> to connect
+        </div>`}
+  </div>`;
+}
+
+// Trigger file picker
+function triggerAttachUpload(recordType, recordId) {
+  if (!isDriveConnected()) {
+    toast('Connect Google Drive in Settings first', true);
+    return;
+  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const btn = document.querySelector(`#attach-${recordType}-${recordId} .attach-upload-btn`);
+    if (btn) { btn.textContent = '⏳ Uploading…'; btn.classList.add('attach-uploading'); btn.disabled = true; }
+    try {
+      for (const file of files) {
+        const subfolder = recordType.charAt(0).toUpperCase() + recordType.slice(1);
+        const result = await uploadToDrive(file, subfolder);
+        const attach = {
+          attachId: 'ATT-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+          recordType, recordId,
+          fileName: result.name,
+          fileType: file.type || '',
+          driveFileId: result.id,
+          driveUrl: result.webViewLink,
+          uploadDate: new Date().toISOString().split('T')[0],
+          uploadedBy: S.settings.company || 'Ironwood Solutions'
+        };
+        S.attachments.push(attach);
+        logActivity(`Attached "${trunc(result.name,35)}" to ${recordType}`, 'var(--amber2)');
+      }
+      await save('Attachments');
+      toast(`${files.length} file${files.length>1?'s':''} uploaded ✓`);
+      refreshAttachSection(recordType, recordId);
+    } catch(e) {
+      toast('Upload failed: ' + e.message, true);
+    } finally {
+      if (btn) { btn.textContent = '⬆ Attach File'; btn.classList.remove('attach-uploading'); btn.disabled = false; }
+    }
+  };
+  input.click();
+}
+
+async function deleteAttach(attachId, recordType, recordId) {
+  if (!confirm('Remove this attachment?')) return;
+  const att = S.attachments.find(a=>a.attachId===attachId);
+  if (!att) return;
+  // Try to delete from Drive if connected
+  if (isDriveConnected() && att.driveFileId) {
+    try { await deleteFromDrive(att.driveFileId); } catch(e) { /* file may be gone already */ }
+  }
+  S.attachments = S.attachments.filter(a=>a.attachId!==attachId);
+  await save('Attachments');
+  toast('Attachment removed');
+  refreshAttachSection(recordType, recordId);
+}
+
+function refreshAttachSection(recordType, recordId) {
+  const el = document.getElementById(`attach-${recordType}-${recordId}`);
+  if (el) el.outerHTML = renderAttachSection(recordType, recordId);
+  // Re-query after replacement since outerHTML swaps the element
+  const newEl = document.getElementById(`attach-${recordType}-${recordId}`);
+}
+
 // ══ INIT ══════════════════════════════════════════════════════════════════════
 // Defensive guards — ensure all state arrays exist even if Sheet returns empty
 if (!S.pipeline || typeof S.pipeline !== 'object') S.pipeline = {};
@@ -2686,6 +3001,7 @@ if (!Array.isArray(S.subAssignments)) S.subAssignments = [];
 if (!Array.isArray(S.contracts)) S.contracts = [];
 if (!Array.isArray(S.govPayments)) S.govPayments = [];
 if (!Array.isArray(S.subPayments)) S.subPayments = [];
+if (!Array.isArray(S.attachments)) S.attachments = [];
 if (!S.settings || typeof S.settings !== 'object') S.settings = { company: 'Ironwood Solutions', margin: 15, samKey: '' };
 S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
 updateBadges();
