@@ -3015,159 +3015,239 @@ async function searchUSASpending(pid) {
 
   resultEl.style.display = 'block';
   if (manualEl) manualEl.style.display = 'none';
-  resultEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div>Searching USASpending.gov…</div>`;
+  resultEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)"><div class="spinner" style="width:20px;height:20px;border-width:2px;flex-shrink:0"></div>Searching USASpending.gov by NAICS ${esc(p.naics||'')}…</div>`;
 
-  // Helper to call USASpending with a given filter set
-  async function doSearch(filters) {
+  try {
+    // Primary: search by NAICS code — most reliable since agency names vary
+    // NAICS must be integer — USASpending rejects strings
+    // Use JSON.parse to force true numeric type, not just JS number coercion
+    let naicsInt = null;
+    if (p.naics) {
+      const cleaned = String(p.naics).replace(/[^0-9]/g, '');
+      naicsInt = cleaned ? JSON.parse(cleaned) : null;
+    }
+
+    // Build filters with explicit integer check
+    const filters = { award_type_codes: ["A","B","C","D"] };
+    if (naicsInt !== null && typeof naicsInt === 'number' && !isNaN(naicsInt)) {
+      filters.naics_codes = [naicsInt];
+    }
+
+    // Log exact payload for debugging
+    const debugPayload = JSON.stringify(filters);
+    console.log('USASpending filters:', debugPayload);
+    console.log('NAICS type:', typeof naicsInt, 'value:', naicsInt);
+
     const body = {
       filters,
-      fields: ["Award ID","Recipient Name","Award Amount","Awarding Agency","Start Date","End Date","Description","NAICS Code","NAICS Description","Period of Performance Current End Date"],
+      fields: [
+        "Award ID","Recipient Name","Award Amount","Awarding Agency",
+        "Awarding Sub Agency","Start Date","End Date",
+        "Period of Performance Current End Date",
+        "Description","NAICS Code","NAICS Description",
+        "Place of Performance City Name","Place of Performance State Code",
+        "Contract Award Type"
+      ],
       sort: "Award Amount",
       order: "desc",
       limit: 8,
       page: 1
     };
+
     const res = await fetch('https://api.usaspending.gov/api/v2/search/spending_by_award/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+
     if (!res.ok) {
       const errText = await res.text().catch(()=>'');
-      throw new Error(`USASpending API ${res.status}: ${errText.slice(0,120)}`);
+      throw new Error(`HTTP ${res.status} — ${errText.slice(0,200)}`);
     }
+
     const data = await res.json();
-    return data.results || [];
-  }
-
-  try {
-    // Strategy 1: NAICS + keyword from title (most specific)
-    const keywords = p.title ? extractKeywords(p.title) : [];
-    let awards = [];
-    let broadened = false;
-
-    if (p.naics && keywords.length > 0) {
-      try {
-        awards = await doSearch({
-          award_type_codes: ["A","B","C","D"],
-          naics_codes: [p.naics],
-          award_amounts: [{ lower_bound: 1000 }]
-        });
-      } catch(e) { /* fall through */ }
-    }
-
-    // Strategy 2: NAICS only
-    if (awards.length === 0 && p.naics) {
-      try {
-        awards = await doSearch({
-          award_type_codes: ["A","B","C","D"],
-          naics_codes: [p.naics],
-          award_amounts: [{ lower_bound: 1000 }]
-        });
-        broadened = true;
-      } catch(e) { /* fall through */ }
-    }
-
-    // Strategy 3: keyword only (last resort)
-    if (awards.length === 0 && keywords.length > 0) {
-      try {
-        awards = await doSearch({
-          award_type_codes: ["A","B","C","D"],
-          award_description_contains: keywords.slice(0,2),
-          award_amounts: [{ lower_bound: 1000 }]
-        });
-        broadened = true;
-      } catch(e) { /* fall through */ }
-    }
+    const awards = data.results || [];
 
     if (awards.length === 0) {
-      renderUSASpendingResults(pid, [], false);
-    } else {
-      renderUSASpendingResults(pid, awards, broadened);
+      resultEl.innerHTML = `
+        <div style="padding:10px 14px;background:rgba(107,122,153,0.08);border:1px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">
+          No contracts found for NAICS ${esc(p.naics||'(none)')} on USASpending.gov.
+          <button class="btn btn-ghost btn-xs" style="margin-left:8px" onclick="showManualEntry('${pid}')">Enter manually</button>
+        </div>`;
+      return;
     }
+
+    // Show results first, then enrich with AI summaries
+    renderUSASpendingResults(pid, awards, p);
 
   } catch(e) {
     resultEl.innerHTML = `
       <div style="padding:10px 14px;background:rgba(230,57,70,0.07);border:1px solid rgba(230,57,70,0.2);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--red2)">
-        Search failed: ${esc(e.message)} — <button class="btn btn-ghost btn-xs" onclick="showManualEntry('${pid}')">Enter manually instead</button>
+        Search failed: ${esc(e.message)}
+        <button class="btn btn-ghost btn-xs" style="margin-left:8px" onclick="showManualEntry('${pid}')">Enter manually</button>
       </div>`;
   }
 }
 
-function extractKeywords(title) {
-  // Strip common filler words, return 3-5 meaningful keywords
-  const stopWords = new Set(['the','a','an','and','or','of','for','in','at','to','from','with','services','service','support','management','operations','office','federal','government','contract','base','station','center','national']);
-  return title.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !stopWords.has(w))
-    .slice(0, 4);
-}
-
-function renderUSASpendingResults(pid, awards, broadened) {
+function renderUSASpendingResults(pid, awards, opp) {
   const resultEl = document.getElementById(`usaSpendingResults-${pid}`);
   if (!resultEl) return;
 
-  if (awards.length === 0) {
-    resultEl.innerHTML = `
-      <div style="padding:10px 14px;background:rgba(107,122,153,0.08);border:1px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">
-        No previous contracts found on USASpending.gov for this agency/NAICS combination.
-        <button class="btn btn-ghost btn-xs" style="margin-left:8px" onclick="showManualEntry('${pid}')">Enter manually</button>
-      </div>`;
-    return;
-  }
-
   resultEl.innerHTML = `
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.1em">
-      ${awards.length} previous contract${awards.length!==1?'s':''} found${broadened?' (broadened to NAICS only)':''} — click to use as benchmark
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.1em">
+      ${awards.length} contracts found (NAICS ${esc(opp.naics||'')}) — AI analyzing relevance…
     </div>
-    ${awards.map(a => {
-      const amount = parseFloat(a['Award Amount']||0);
-      const awardId = a['Award ID']||'';
-      const recipient = a['Recipient Name']||'—';
-      const agency = a['Awarding Agency']||'—';
-      const desc = trunc(a['Description']||'',80);
-      const start = a['Start Date']||'';
-      const end = a['Period of Performance Current End Date']||a['End Date']||'';
-      const naicsDesc = a['NAICS Description']||'';
-      return `
-        <div class="usa-award-row" onclick="selectUSASpendingAward('${pid}',${amount},'${esc(awardId)}','${esc(recipient)}')"
-          style="padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;transition:all 0.18s"
-          onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-            <div style="flex:1">
-              <div style="font-size:13px;font-weight:700;color:var(--cream);margin-bottom:2px">${esc(recipient)}</div>
-              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:2px">${esc(trunc(agency,45))} · ${esc(naicsDesc||'')}</div>
-              ${desc?`<div style="font-size:11px;color:var(--mist);margin-top:3px">${esc(desc)}</div>`:''}
-            </div>
-            <div style="text-align:right;flex-shrink:0">
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--amber2);line-height:1">$${fmt(amount)}</div>
-              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist)">${fmtDate(start)} → ${fmtDate(end)}</div>
-              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${esc(awardId)}</div>
-            </div>
+    ${awards.map((a, idx) => {
+      const amount   = parseFloat(a['Award Amount']||0);
+      const awardId  = a['Award ID']||'';
+      const recip    = a['Recipient Name']||'—';
+      const agency   = a['Awarding Agency']||'—';
+      const subAgency= a['Awarding Sub Agency']||'';
+      const start    = a['Start Date']||'';
+      const end      = a['Period of Performance Current End Date']||a['End Date']||'';
+      const desc     = trunc(a['Description']||'',120);
+      const naicsDesc= a['NAICS Description']||'';
+      const city     = a['Place of Performance City Name']||'';
+      const state    = a['Place of Performance State Code']||'';
+      const location = [city, state].filter(Boolean).join(', ') || '—';
+      const contractType = a['Contract Award Type']||'';
+
+      return `<div id="usa-card-${pid}-${idx}"
+        style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;transition:border-color 0.18s"
+        onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
+
+        <!-- Header row -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 16px 8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <div style="font-size:14px;font-weight:700;color:var(--cream);margin-bottom:3px">${esc(recip)}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2)">${esc(trunc(agency,50))}</div>
+            ${subAgency&&subAgency!==agency?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist)">${esc(trunc(subAgency,50))}</div>`:''}
           </div>
-        </div>`;
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--amber2);line-height:1">$${fmt(amount)}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-top:2px">${esc(awardId)}</div>
+          </div>
+        </div>
+
+        <!-- Detail grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:0 16px 10px">
+          <div><div class="meta-k">Timeframe</div><div class="meta-v">${fmtDate(start)} → ${fmtDate(end)}</div></div>
+          <div><div class="meta-k">Location</div><div class="meta-v">${esc(location)}</div></div>
+          <div><div class="meta-k">NAICS</div><div class="meta-v">${esc(a['NAICS Code']||'—')} ${esc(trunc(naicsDesc,25))}</div></div>
+          <div><div class="meta-k">Contract Type</div><div class="meta-v">${esc(contractType||'—')}</div></div>
+        </div>
+
+        <!-- Description -->
+        ${desc?`<div style="padding:0 16px 10px;font-size:12px;color:var(--mist);line-height:1.5;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px">${esc(desc)}</div>`:''}
+
+        <!-- AI Summary placeholder -->
+        <div id="usa-ai-${pid}-${idx}" style="margin:0 16px 10px;padding:8px 12px;background:rgba(196,123,43,0.05);border-left:2px solid var(--amber);border-radius:0 4px 4px 0;font-size:12px;color:var(--mist);font-style:italic">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);font-style:normal;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
+          <span style="animation:pulse 1s infinite;display:inline-block">●</span> Analyzing relevance…
+        </div>
+
+        <!-- Action -->
+        <div style="padding:8px 16px 12px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:8px;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="selectUSASpendingAward('${pid}',${amount},'${esc(awardId)}','${esc(recip.replace(/'/g,"\'"))}')">
+            Use $${fmt(amount)} as Benchmark
+          </button>
+          <a class="btn btn-ghost btn-sm" href="https://www.usaspending.gov/award/${esc(awardId)}" target="_blank">View on USASpending ↗</a>
+        </div>
+      </div>`;
     }).join('')}
     <button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="showManualEntry('${pid}')">Enter different value manually</button>`;
+
+  // Async: generate AI analysis for each result
+  awards.forEach((a, idx) => generateUSAAISummary(pid, idx, a, opp));
+}
+
+async function generateUSAAISummary(pid, idx, award, opp) {
+  const el = document.getElementById(`usa-ai-${pid}-${idx}`);
+  if (!el) return;
+
+  const amount   = parseFloat(award['Award Amount']||0);
+  const recip    = award['Recipient Name']||'';
+  const agency   = award['Awarding Agency']||'';
+  const city     = award['Place of Performance City Name']||'';
+  const state    = award['Place of Performance State Code']||'';
+  const start    = award['Start Date']||'';
+  const end      = award['Period of Performance Current End Date']||award['End Date']||'';
+  const desc     = award['Description']||'';
+  const naicsDesc= award['NAICS Description']||'';
+  const contractType = award['Contract Award Type']||'';
+
+  try {
+    const prompt = `You are a government contracting analyst. Rate and analyze how relevant this previous contract is as a benchmark for the current opportunity.
+
+CURRENT OPPORTUNITY:
+Title: ${opp.title||''}
+Agency: ${opp.agency||''}
+NAICS: ${opp.naics||''} 
+Deadline: ${opp.deadline||''}
+
+PREVIOUS CONTRACT FOUND:
+Recipient: ${recip}
+Awarding Agency: ${agency}
+Amount: $${fmt(amount)}
+Location: ${city}, ${state}
+Period: ${start} to ${end}
+NAICS Description: ${naicsDesc}
+Contract Type: ${contractType}
+Description: ${desc.slice(0,300)}
+
+Respond in JSON only, no markdown:
+{
+  "score": <1-5 integer, 5=very relevant>,
+  "scoreLabel": "<Very Relevant|Relevant|Somewhat Relevant|Low Relevance|Not Relevant>",
+  "summary": "<2 sentences: what this contract was for and how relevant it is as a pricing benchmark>",
+  "pricingInsight": "<1 sentence: what the $amount tells you about market pricing for this type of work>"
+}`;
+
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const d = await r.json();
+    const raw = d.content?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}';
+    const result = JSON.parse(raw);
+
+    const scoreColors = { 5:'var(--green2)', 4:'var(--green2)', 3:'var(--amber2)', 2:'var(--mist)', 1:'var(--muted)' };
+    const scoreColor = scoreColors[result.score] || 'var(--mist)';
+    const stars = '★'.repeat(result.score||0) + '☆'.repeat(5-(result.score||0));
+
+    if (el) {
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:${scoreColor}">${stars}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:${scoreColor}">${esc(result.scoreLabel||'')}</span>
+        </div>
+        <div style="font-size:12px;color:var(--mist);line-height:1.6;margin-bottom:4px">${esc(result.summary||'')}</div>
+        ${result.pricingInsight?`<div style="font-size:11px;color:var(--amber2);font-style:normal">💡 ${esc(result.pricingInsight)}</div>`:''}`;
+    }
+  } catch(e) {
+    if (el) el.innerHTML = `<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">AI analysis unavailable</span>`;
+  }
 }
 
 async function selectUSASpendingAward(pid, amount, awardId, recipient) {
-  // Populate the fields and save
   const inputEl = document.getElementById('prevContractInput');
   const sourceEl = document.getElementById('prevContractSource');
-  if (inputEl) { inputEl.value = amount; }
+  if (inputEl) inputEl.value = amount;
   const sourceStr = `USASpending.gov — Award ID: ${awardId} (${recipient})`;
-  if (sourceEl) { sourceEl.value = sourceStr; }
-
-  // Show manual entry section with populated values
+  if (sourceEl) sourceEl.value = sourceStr;
   showManualEntry(pid);
-
-  // Auto-save
   if (S.pipeline[pid]) {
     S.pipeline[pid].prevContractValue = amount;
     S.pipeline[pid].prevContractSource = sourceStr;
     await save('Pipeline');
-    toast(`Previous contract value set: $${fmt(amount)} ✓`);
+    toast(`Benchmark set: $${fmt(amount)} ✓`);
     updateBidPreview(pid);
   }
 }
