@@ -3205,17 +3205,16 @@ Respond in JSON only, no markdown:
 
     // Use GET request — Apps Script GET doesn't have CORS issues unlike POST
     const payload = encodeURIComponent(JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-haiku-4-5',
       max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }]
     }));
     const aiUrl = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
     const r = await fetch(aiUrl);
     const d = await r.json();
-    console.log('AI raw response:', JSON.stringify(d).slice(0,500));
-    const rawText = d.content?.[0]?.text || d.text || d.error || '{}';
+    const rawText = d.content?.[0]?.text || d.text || '';
+    if (!rawText || d.error) throw new Error(d.error?.message || d.error || 'Empty response');
     const raw = rawText.replace(/```json|```/g,'').trim();
-    console.log('AI parsed text:', raw.slice(0,300));
     const result = JSON.parse(raw);
 
     const scoreColors = { 5:'var(--green2)', 4:'var(--green2)', 3:'var(--amber2)', 2:'var(--mist)', 1:'var(--muted)' };
