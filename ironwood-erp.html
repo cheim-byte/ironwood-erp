@@ -411,10 +411,12 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbwnrsvF9lfuVYEt87iyRoLo-kjMP7y4GN_imN1V2dmh1JyMOY-gZddx0_1bWP2cAwaMDA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxUGwamyYdqkhkFqgEqCNRFBjvABInsFNlDWHwhyHPip_XtEEDfx4x8iBXWyb_1gWPMbg/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
+const DRIVE_CLIENT_ID_STORE = 'iw_drive_client_id';
+const DRIVE_FOLDER_STORE = 'iw_drive_folder';
 
 // ══ STATE ═════════════════════════════════════════════════════════════════════
 const S = {
@@ -626,7 +628,7 @@ function activityToRows() {
 function rowsToActivity(rows) { return rows.slice(1).filter(r=>r[0]).map(r=>({text:r[0],color:r[1],time:r[2]})); }
 function settingsToRows() { return [['key','value'],['company',S.settings.company||'Ironwood Solutions'],['margin',S.settings.margin||15]]; }
 function rowsToSettings(rows) {
-  const s = { company:'Ironwood Solutions', margin:15, samKey: localStorage.getItem(SAM_KEY_STORE)||'' };
+  const s = { company:'Ironwood Solutions', margin:15, samKey: localStorage.getItem(SAM_KEY_STORE)||'', driveClientId: localStorage.getItem(DRIVE_CLIENT_ID_STORE)||'', driveFolderName: localStorage.getItem(DRIVE_FOLDER_STORE)||'Ironwood ERP Attachments' };
   rows.slice(1).forEach(r => { if (r[0]==='company') s.company=r[1]; if (r[0]==='margin') s.margin=parseFloat(r[1])||15; });
   return s;
 }
@@ -679,6 +681,8 @@ async function loadFromSheet() {
     S.subPayments = rowsToSubPayments(subpay);
     S.attachments = rowsToAttachments(attachs);
     S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
+S.settings.driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_STORE) || '';
+S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
     setSyncStatus('live', 'Synced');
     updateBadges();
     renderView(currentView);
@@ -2600,8 +2604,8 @@ function renderSettings(c,ta){
         Set the authorized JavaScript origin to <code style="font-family:'DM Mono',monospace;color:var(--cream)">https://cheim-byte.github.io</code>
       </div>
       <div class="form-group"><label class="form-label">Google OAuth Client ID</label>
-        <input class="form-input" id="setClientId" value="${esc(S.settings.driveClientId||'')}" placeholder="xxxx.apps.googleusercontent.com">
-        <div style="font-size:11px;color:var(--mist);margin-top:6px">Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID</div>
+        <input class="form-input" type="password" id="setClientId" value="${esc(S.settings.driveClientId||localStorage.getItem(DRIVE_CLIENT_ID_STORE)||'')}" placeholder="xxxx.apps.googleusercontent.com">
+        <div style="font-size:11px;color:var(--mist);margin-top:6px">Stored in Apps Script secure storage — loads automatically on every device 🔒</div>
       </div>
       <div class="form-group"><label class="form-label">Drive Folder Name</label>
         <input class="form-input" id="setFolderName" value="${esc(S.settings.driveFolderName||'Ironwood ERP Attachments')}" placeholder="Ironwood ERP Attachments">
@@ -2645,20 +2649,27 @@ async function saveSettings(){
   document.querySelector('.logo-mark').textContent=S.settings.company.split(' ')[0];
 }
 
-function saveDriveSettings(){
-  S.settings.driveClientId=v('setClientId');
-  S.settings.driveFolderName=v('setFolderName')||'Ironwood ERP Attachments';
-  localStorage.setItem('iw_drive_client_id', S.settings.driveClientId);
-  localStorage.setItem('iw_drive_folder', S.settings.driveFolderName);
-  toast('Drive settings saved ✓');
+async function saveDriveSettings(){
+  S.settings.driveClientId = v('setClientId');
+  S.settings.driveFolderName = v('setFolderName') || 'Ironwood ERP Attachments';
+  // Always save to localStorage as immediate fallback
+  localStorage.setItem(DRIVE_CLIENT_ID_STORE, S.settings.driveClientId);
+  localStorage.setItem(DRIVE_FOLDER_STORE, S.settings.driveFolderName);
+  // Also save to Apps Script PropertiesService for cross-device access
+  const [s1, s2] = await Promise.all([
+    saveSecureKey('DRIVE_CLIENT_ID', S.settings.driveClientId),
+    saveSecureKey('DRIVE_FOLDER', S.settings.driveFolderName)
+  ]);
+  toast((s1 && s2) ? 'Drive settings saved to secure storage ✓' : 'Drive settings saved locally ✓');
   updateDriveStatus();
 }
 
-function saveSamKey(){
-  const k=v('setSam');
-  localStorage.setItem(SAM_KEY_STORE,k);
-  S.settings.samKey=k;
-  toast('SAM.gov key saved ✓');
+async function saveSamKey(){
+  const k = v('setSam');
+  S.settings.samKey = k;
+  localStorage.setItem(SAM_KEY_STORE, k);
+  const saved = await saveSecureKey('SAM_API_KEY', k);
+  toast(saved ? 'SAM.gov key saved to secure storage ✓' : 'SAM.gov key saved locally ✓');
 }
 
 function exportData() {
@@ -2791,7 +2802,7 @@ function updateDriveStatus() {
 }
 
 function initDriveAuth() {
-  const clientId = S.settings.driveClientId || localStorage.getItem('iw_drive_client_id');
+  const clientId = S.settings.driveClientId || localStorage.getItem(DRIVE_CLIENT_ID_STORE);
   if (!clientId) {
     toast('Add your OAuth Client ID in Drive Settings first', true);
     return;
@@ -2824,7 +2835,7 @@ function doAuth(clientId) {
 
 // Get or create ERP folder in Drive
 async function getDriveFolderId(subfolder) {
-  const folderName = S.settings.driveFolderName || localStorage.getItem('iw_drive_folder') || 'Ironwood ERP Attachments';
+  const folderName = S.settings.driveFolderName || localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
   const fullName = subfolder ? `${folderName}/${subfolder}` : folderName;
 
   // Search for existing folder
@@ -2988,6 +2999,64 @@ function refreshAttachSection(recordType, recordId) {
   const newEl = document.getElementById(`attach-${recordType}-${recordId}`);
 }
 
+
+// ══ SECURE KEY MANAGEMENT ═════════════════════════════════════════════════════
+// Keys fetched from Apps Script PropertiesService — never stored in Sheet or code
+
+async function fetchSecureKeys() {
+  try {
+    const url = `${API_URL}?token=${SECRET}&action=getkeys&sheetUrl=${encodeURIComponent(SHEET_URL)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    if (d.samKey) {
+      S.settings.samKey = d.samKey;
+      localStorage.setItem(SAM_KEY_STORE, d.samKey);
+    }
+    if (d.driveClientId) {
+      S.settings.driveClientId = d.driveClientId;
+      localStorage.setItem(DRIVE_CLIENT_ID_STORE, d.driveClientId);
+    }
+    if (d.driveFolderName) {
+      S.settings.driveFolderName = d.driveFolderName;
+      localStorage.setItem(DRIVE_FOLDER_STORE, d.driveFolderName);
+    }
+    console.log('Secure keys loaded ✓');
+    updateDriveStatus();
+    updateBadges();
+  } catch(e) {
+    // Fall back to localStorage if Apps Script unreachable
+    console.warn('Key fetch failed, using localStorage fallback:', e.message);
+    S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
+    S.settings.driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_STORE) || '';
+    S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
+  }
+}
+
+async function saveSecureKey(keyName, value) {
+  // Save key to Apps Script PropertiesService via a write action
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: SECRET,
+        action: 'setkey',
+        sheetUrl: SHEET_URL,
+        key: keyName,
+        value: value
+      })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    return true;
+  } catch(e) {
+    console.warn('Key save to Apps Script failed:', e.message);
+    return false;
+  }
+}
+
 // ══ INIT ══════════════════════════════════════════════════════════════════════
 // Defensive guards — ensure all state arrays exist even if Sheet returns empty
 if (!S.pipeline || typeof S.pipeline !== 'object') S.pipeline = {};
@@ -3003,10 +3072,14 @@ if (!Array.isArray(S.govPayments)) S.govPayments = [];
 if (!Array.isArray(S.subPayments)) S.subPayments = [];
 if (!Array.isArray(S.attachments)) S.attachments = [];
 if (!S.settings || typeof S.settings !== 'object') S.settings = { company: 'Ironwood Solutions', margin: 15, samKey: '' };
+// Load keys from localStorage as immediate fallback while Apps Script fetch runs
 S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
+S.settings.driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_STORE) || '';
+S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
 updateBadges();
 setSyncStatus('syncing','Loading…');
-loadFromSheet();
+// Fetch secure keys from Apps Script, then load Sheet data
+fetchSecureKeys().then(() => loadFromSheet());
 </script>
 </body>
 </html>
