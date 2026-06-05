@@ -3019,33 +3019,26 @@ async function searchUSASpending(pid) {
 
   try {
     // Primary: search by NAICS code — most reliable since agency names vary
-    // NAICS must be integer — USASpending rejects strings
-    // Use JSON.parse to force true numeric type, not just JS number coercion
-    let naicsInt = null;
-    if (p.naics) {
-      const cleaned = String(p.naics).replace(/[^0-9]/g, '');
-      naicsInt = cleaned ? JSON.parse(cleaned) : null;
-    }
+    // naics_codes per API spec: use NAICSCodeObject with require array of strings
+    const naicsStr = p.naics ? String(p.naics).replace(/[^0-9]/g,'') : null;
 
-    // Build filters with explicit integer check
+    // Build filters
     const filters = { award_type_codes: ["A","B","C","D"] };
-    if (naicsInt !== null && typeof naicsInt === 'number' && !isNaN(naicsInt)) {
-      filters.naics_codes = [naicsInt];
-    }
+    if (naicsStr) filters.naics_codes = { require: [naicsStr] };
 
-    // Log exact payload for debugging
-    const debugPayload = JSON.stringify(filters);
-    console.log('USASpending filters:', debugPayload);
-    console.log('NAICS type:', typeof naicsInt, 'value:', naicsInt);
+    // Log exact payload
+    console.log('USASpending filters:', JSON.stringify(filters));
 
+    // Valid fields per API spec (spending_by_award contracts endpoint)
     const body = {
       filters,
       fields: [
-        "Award ID","Recipient Name","Award Amount","Awarding Agency",
+        "Award ID","Recipient Name","Award Amount",
+        "Awarding Agency","Awarding Sub Agency",
         "Start Date","End Date","Period of Performance Current End Date",
-        "Description","NAICS Code","NAICS Description",
-        "Place of Performance City Name","Place of Performance State Code",
-        "Contract Award Type","Award Category"
+        "Description","NAICS","Contract Award Type",
+        "Place of Performance State Code","Place of Performance Zip5",
+        "Recipient Location","Primary Place of Performance"
       ],
       sort: "Award Amount",
       order: "desc",
@@ -3108,10 +3101,12 @@ function renderUSASpendingResults(pid, awards, opp) {
       const start    = a['Start Date']||'';
       const end      = a['Period of Performance Current End Date']||a['End Date']||'';
       const desc     = trunc(a['Description']||'',120);
-      const naicsDesc= a['NAICS Description']||'';
-      const city     = a['Place of Performance City Name']||'';
-      const state    = a['Place of Performance State Code']||'';
-      const location = [city, state].filter(Boolean).join(', ') || '—';
+      const naicsDesc= a['NAICS']||'';
+      const popObj   = (typeof a['Primary Place of Performance']==='object'&&a['Primary Place of Performance'])||{};
+      const city     = popObj.city_name||'';
+      const state    = popObj.state_name||'';
+      const zip      = a['Place of Performance Zip5']||'';
+      const location = [city, state, zip].filter(Boolean).join(', ') || '—';
       const contractType = a['Contract Award Type']||'';
 
       return `<div id="usa-card-${pid}-${idx}"
@@ -3170,12 +3165,13 @@ async function generateUSAAISummary(pid, idx, award, opp) {
   const amount   = parseFloat(award['Award Amount']||0);
   const recip    = award['Recipient Name']||'';
   const agency   = award['Awarding Agency']||'';
-  const city     = award['Place of Performance City Name']||'';
-  const state    = award['Place of Performance State Code']||'';
+  const popObj   = award['Primary Place of Performance']||{};
+  const city     = popObj.city_name||'';
+  const state    = popObj.state_name||award['Place of Performance State Code']||'';
   const start    = award['Start Date']||'';
   const end      = award['Period of Performance Current End Date']||award['End Date']||'';
   const desc     = award['Description']||'';
-  const naicsDesc= award['NAICS Description']||'';
+  const naicsDesc= award['NAICS']||'';
   const contractType = award['Contract Award Type']||'';
 
   try {
