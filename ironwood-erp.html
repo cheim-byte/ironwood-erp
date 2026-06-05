@@ -411,7 +411,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbxUGwamyYdqkhkFqgEqCNRFBjvABInsFNlDWHwhyHPip_XtEEDfx4x8iBXWyb_1gWPMbg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbx7Q6Ma_XT5NVoJY7vXKW4QmKSLFsjxtEl3rIkjpqpHw9DSXBUoUabzMoP6cYfMOYXcwg/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -3101,7 +3101,8 @@ function renderUSASpendingResults(pid, awards, opp) {
       const start    = a['Start Date']||'';
       const end      = a['Period of Performance Current End Date']||a['End Date']||'';
       const desc     = trunc(a['Description']||'',120);
-      const naicsDesc= a['NAICS']||'';
+      const naicsRaw = a['NAICS']||'';
+      const naicsDesc= typeof naicsRaw==='object' ? (naicsRaw.description||naicsRaw.code||'') : String(naicsRaw);
       const popObj   = (typeof a['Primary Place of Performance']==='object'&&a['Primary Place of Performance'])||{};
       const city     = popObj.city_name||'';
       const state    = popObj.state_name||'';
@@ -3171,7 +3172,8 @@ async function generateUSAAISummary(pid, idx, award, opp) {
   const start    = award['Start Date']||'';
   const end      = award['Period of Performance Current End Date']||award['End Date']||'';
   const desc     = award['Description']||'';
-  const naicsDesc= award['NAICS']||'';
+  const naicsRaw2= award['NAICS']||'';
+  const naicsDesc= typeof naicsRaw2==='object' ? (naicsRaw2.description||naicsRaw2.code||'') : String(naicsRaw2);
   const contractType = award['Contract Award Type']||'';
 
   try {
@@ -3201,10 +3203,14 @@ Respond in JSON only, no markdown:
   "pricingInsight": "<1 sentence: what the $amount tells you about market pricing for this type of work>"
 }`;
 
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    // Route through Apps Script to avoid CORS — Apps Script proxies to Claude
+    const r = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        token: SECRET,
+        action: 'ai',
+        sheetUrl: SHEET_URL,
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
@@ -3212,7 +3218,8 @@ Respond in JSON only, no markdown:
     });
 
     const d = await r.json();
-    const raw = d.content?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}';
+    // Apps Script returns { content: [{type:'text', text:'...'}] } or { text: '...' }
+    const raw = (d.content?.[0]?.text || d.text || '{}').replace(/```json|```/g,'').trim();
     const result = JSON.parse(raw);
 
     const scoreColors = { 5:'var(--green2)', 4:'var(--green2)', 3:'var(--amber2)', 2:'var(--mist)', 1:'var(--muted)' };
@@ -3281,8 +3288,8 @@ async function fetchSecureKeys() {
     updateDriveStatus();
     updateBadges();
   } catch(e) {
-    // Fall back to localStorage if Apps Script unreachable
-    console.warn('Key fetch failed, using localStorage fallback:', e.message);
+    // Fall back to localStorage — this is normal if getkeys not yet in Apps Script
+    console.log('Keys: using localStorage fallback (' + e.message + ')');
     S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
     S.settings.driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_STORE) || '';
     S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
