@@ -3013,29 +3013,12 @@ async function searchUSASpending(pid) {
   const manualEl = document.getElementById(`prevManualEntry-${pid}`);
   if (!resultEl) return;
 
-  // Show loading
   resultEl.style.display = 'block';
   if (manualEl) manualEl.style.display = 'none';
   resultEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div>Searching USASpending.gov…</div>`;
 
-  try {
-    // Build search filters from opportunity data
-    const filters = {
-      award_type_codes: ["A","B","C","D"], // Contracts only
-      agencies: p.agency ? [{
-        type: "awarding",
-        tier: "toptier",
-        name: p.agency
-      }] : undefined,
-      naics_codes: p.naics ? [p.naics] : undefined,
-    };
-
-    // Remove undefined keys
-    Object.keys(filters).forEach(k => filters[k] === undefined && delete filters[k]);
-
-    // Use keyword search if we have a title
-    const keywords = p.title ? extractKeywords(p.title) : [];
-
+  // Helper to call USASpending with a given filter set
+  async function doSearch(filters) {
     const body = {
       filters,
       fields: ["Award ID","Recipient Name","Award Amount","Awarding Agency","Start Date","End Date","Description","NAICS Code","NAICS Description","Period of Performance Current End Date"],
@@ -3044,42 +3027,63 @@ async function searchUSASpending(pid) {
       limit: 8,
       page: 1
     };
-
-    if (keywords.length > 0) body.filters.keywords = keywords;
-
     const res = await fetch('https://api.usaspending.gov/api/v2/search/spending_by_award/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-
-    if (!res.ok) throw new Error(`USASpending API: ${res.status}`);
+    if (!res.ok) {
+      const errText = await res.text().catch(()=>'');
+      throw new Error(`USASpending API ${res.status}: ${errText.slice(0,120)}`);
+    }
     const data = await res.json();
-    const awards = data.results || [];
+    return data.results || [];
+  }
+
+  try {
+    // Strategy 1: NAICS + keyword from title (most specific)
+    const keywords = p.title ? extractKeywords(p.title) : [];
+    let awards = [];
+    let broadened = false;
+
+    if (p.naics && keywords.length > 0) {
+      try {
+        awards = await doSearch({
+          award_type_codes: ["A","B","C","D"],
+          naics_codes: [p.naics],
+          award_amounts: [{ lower_bound: 1000 }]
+        });
+      } catch(e) { /* fall through */ }
+    }
+
+    // Strategy 2: NAICS only
+    if (awards.length === 0 && p.naics) {
+      try {
+        awards = await doSearch({
+          award_type_codes: ["A","B","C","D"],
+          naics_codes: [p.naics],
+          award_amounts: [{ lower_bound: 1000 }]
+        });
+        broadened = true;
+      } catch(e) { /* fall through */ }
+    }
+
+    // Strategy 3: keyword only (last resort)
+    if (awards.length === 0 && keywords.length > 0) {
+      try {
+        awards = await doSearch({
+          award_type_codes: ["A","B","C","D"],
+          award_description_contains: keywords.slice(0,2),
+          award_amounts: [{ lower_bound: 1000 }]
+        });
+        broadened = true;
+      } catch(e) { /* fall through */ }
+    }
 
     if (awards.length === 0) {
-      // Retry with broader search — just NAICS, no agency filter
-      if (p.naics) {
-        const body2 = {
-          filters: { award_type_codes: ["A","B","C","D"], naics_codes: [p.naics] },
-          fields: ["Award ID","Recipient Name","Award Amount","Awarding Agency","Start Date","End Date","Description","NAICS Code","NAICS Description"],
-          sort: "Award Amount",
-          order: "desc",
-          limit: 8,
-          page: 1
-        };
-        const res2 = await fetch('https://api.usaspending.gov/api/v2/search/spending_by_award/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body2)
-        });
-        const data2 = await res2.json();
-        renderUSASpendingResults(pid, data2.results || [], true);
-      } else {
-        renderUSASpendingResults(pid, [], false);
-      }
+      renderUSASpendingResults(pid, [], false);
     } else {
-      renderUSASpendingResults(pid, awards, false);
+      renderUSASpendingResults(pid, awards, broadened);
     }
 
   } catch(e) {
