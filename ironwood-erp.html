@@ -3203,22 +3203,15 @@ Respond in JSON only, no markdown:
   "pricingInsight": "<1 sentence: what the $amount tells you about market pricing for this type of work>"
 }`;
 
-    // Route through Apps Script to avoid CORS — Apps Script proxies to Claude
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: SECRET,
-        action: 'ai',
-        sheetUrl: SHEET_URL,
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
+    // Use GET request — Apps Script GET doesn't have CORS issues unlike POST
+    const payload = encodeURIComponent(JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    }));
+    const aiUrl = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
+    const r = await fetch(aiUrl);
     const d = await r.json();
-    // Apps Script returns { content: [{type:'text', text:'...'}] } or { text: '...' }
     const raw = (d.content?.[0]?.text || d.text || '{}').replace(/```json|```/g,'').trim();
     const result = JSON.parse(raw);
 
