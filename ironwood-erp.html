@@ -361,7 +361,7 @@ a:hover{text-decoration:underline}
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div style="display:flex;align-items:center;gap:10px">
-      <img src="favicon.ico" style="width:32px;height:32px;object-fit:contain;flex-shrink:0" alt="Ironwood Solutions">
+      <img src="Ironwoood_Solutions_Logo.png" style="width:36px;height:36px;object-fit:contain;flex-shrink:0" alt="Ironwood Solutions">
       <div>
         <span class="logo-mark">Ironwood</span>
         <span class="logo-sub">Solutions ERP</span>
@@ -900,7 +900,7 @@ async function doSearch() {
 
 async function fetchSAM(params, offset) {
   const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
-  const limit = parseInt(document.getElementById('fLimit')?.value||25);
+  const limit = parseInt(document.getElementById('fLimit')?.value||10);
   searchLimit = limit;
   const hasKeywords = params.keywords && params.keywords.trim();
   const hasNaics = params.naicsCode && /^\d{6}$/.test(params.naicsCode);
@@ -923,9 +923,14 @@ async function fetchSAM(params, offset) {
     const res = await fetch(buildSAMUrl(true));
     if (!res.ok) {
       const e = await res.json().catch(()=>({}));
-      // Retry without NAICS if that was included
+      // Don't retry on rate limit — show clear message
+      if (res.status === 429) {
+        const resetMsg = e?.description || e?.message || '';
+        const resetTime = resetMsg.match(/\d{4}-\w+-\d+ \d+:\d+:\d+/)?.[0] || 'midnight UTC';
+        throw new Error(`Daily SAM.gov quota reached — resets at ${resetTime}. Try again tomorrow or reduce search frequency.`);
+      }
+      // Retry without NAICS only for non-rate-limit errors
       if (hasNaics && !hasKeywords) {
-        console.log('Retrying without NAICS filter...');
         const res2 = await fetch(buildSAMUrl(false));
         if (!res2.ok) { const e2=await res2.json().catch(()=>({})); throw new Error(e2?.description||e2?.message||`HTTP ${res2.status}`); }
         const data2 = await res2.json();
@@ -938,7 +943,12 @@ async function fetchSAM(params, offset) {
     const data = await res.json();
     searchTotal = data.totalRecords||0; searchOffset = offset;
     renderSearchResults(data.opportunitiesData||[], params.explanation||'');
-  } catch(e) { showSearchErr(`SAM.gov error: ${e.message}`); }
+  } catch(e) {
+    if (e.message.includes('quota') || e.message.includes('429')) {
+      localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
+    }
+    showSearchErr(`SAM.gov error: ${e.message}`);
+  }
 }
 
 function renderSearchResults(opps, explanation) {
