@@ -878,15 +878,15 @@ async function doSearch() {
   if (btn) btn.disabled = true;
   showSearchSpinner('Asking AI to interpret your search…');
   try {
-    const aiR = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-haiku-4-5', max_tokens:150,
-        messages:[{role:'user',content:`SAM.gov search params. JSON only:\n{"keywords":"2-4 words","naicsCode":"6-digit or empty","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"1 sentence"}\nQuery:"${q}"`}]
-      })
-    });
+    const aiPayload1 = encodeURIComponent(JSON.stringify({ model:'claude-haiku-4-5', max_tokens:150,
+      messages:[{role:'user',content:`SAM.gov search params. JSON only:\n{"keywords":"2-4 words","naicsCode":"exact 6-digit NAICS or empty — never use broad codes like 562000","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"1 sentence"}\nIMPORTANT: naicsCode must be a specific leaf-level 6-digit code.\nQuery:"${q}"`}]
+    }));
+    const aiR = await fetch(`${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${aiPayload1}`);
     const ad = await aiR.json();
     let params = {};
     try { params = JSON.parse(ad.content[0].text.replace(/```json|```/g,'').trim()); } catch(e) { params = {keywords:q.split(' ').slice(0,3).join(' ')}; }
+    // Validate NAICS — must be exactly 6 digits, reject broad codes
+    if (params.naicsCode && !/^\d{6}$/.test(params.naicsCode)) { console.log('Invalid NAICS stripped:', params.naicsCode); delete params.naicsCode; }
     lastKeywords = params.keywords || q;
     showSearchSpinner(`Fetching from SAM.gov: "${lastKeywords}"…`);
     await fetchSAM(params, 0);
@@ -900,7 +900,7 @@ async function fetchSAM(params, offset) {
   searchLimit = limit;
   const p = new URLSearchParams({ api_key:samKey, limit, offset, postedFrom:postedFrom() });
   if (params.keywords) p.set('q', params.keywords);
-  if (params.naicsCode) p.set('naicsCode', params.naicsCode);
+  if (params.naicsCode && /^\d{6}$/.test(params.naicsCode)) p.set('naicsCode', params.naicsCode);
   const fN = document.getElementById('fNotice')?.value||params.noticeType;
   const fS = document.getElementById('fSetAside')?.value||params.setAside;
   const fSt = document.getElementById('fState')?.value||params.state;
@@ -969,12 +969,10 @@ async function genSummary(pid, o) {
   const el = document.getElementById(`sum-${pid}`);
   if (!el) return;
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-haiku-4-5', max_tokens:120,
-        messages:[{role:'user',content:`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`}]
-      })
-    });
+    const aiPayload2 = encodeURIComponent(JSON.stringify({ model:'claude-haiku-4-5', max_tokens:120,
+      messages:[{role:'user',content:`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`}]
+    }));
+    const r = await fetch(`${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${aiPayload2}`);
     const d=await r.json();
     if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div>${esc(d.content?.[0]?.text||'Unavailable')}`;
   } catch(e) { if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div><span class="muted" style="font-size:11px">Unavailable</span>`; }
