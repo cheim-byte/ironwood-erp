@@ -900,8 +900,17 @@ async function fetchSAM(params, offset) {
   const limit = parseInt(document.getElementById('fLimit')?.value||25);
   searchLimit = limit;
   const p = new URLSearchParams({ api_key:samKey, limit, offset, postedFrom:postedFrom() });
-  if (params.keywords) p.set('q', params.keywords);
-  if (params.naicsCode && /^\d{6}$/.test(params.naicsCode)) p.set('naicsCode', params.naicsCode);
+
+  // SAM.gov v2: use keyword search OR naics filter, not both simultaneously
+  // If we have both, prefer keywords (broader) and drop naics from URL
+  // naics can be combined with other filters but not with 'q' in some cases
+  const hasKeywords = params.keywords && params.keywords.trim();
+  const hasNaics = params.naicsCode && /^\d{6}$/.test(params.naicsCode);
+
+  if (hasKeywords) p.set('q', params.keywords);
+  if (hasNaics && !hasKeywords) p.set('naicsCode', params.naicsCode);
+  // If both exist, add naics as a filter alongside keywords only if keyword search works
+  // Use ptype filter to get all notice types
   const fN = document.getElementById('fNotice')?.value||params.noticeType;
   const fS = document.getElementById('fSetAside')?.value||params.setAside;
   const fSt = document.getElementById('fState')?.value||params.state;
@@ -910,7 +919,22 @@ async function fetchSAM(params, offset) {
   if (fSt) p.set('placeOfPerformanceState', fSt);
   try {
     const res = await fetch(`https://api.sam.gov/opportunities/v2/search?${p}`);
-    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e?.description||e?.message||`HTTP ${res.status}`); }
+    if (!res.ok) {
+      const e=await res.json().catch(()=>({}));
+      // If failed with naics+keywords, retry with keywords only
+      if (hasNaics && hasKeywords) {
+        console.log('Retrying without NAICS filter...');
+        p.delete('naicsCode');
+        const res2 = await fetch(`https://api.sam.gov/opportunities/v2/search?${p}`);
+        if (!res2.ok) { const e2=await res2.json().catch(()=>({})); throw new Error(e2?.description||e2?.message||`HTTP ${res2.status}`); }
+        const data2 = await res2.json();
+        searchTotal = data2.totalRecords||0;
+        searchOffset = offset;
+        renderSearchResults(data2.opportunitiesData||[], params.explanation||'');
+        return;
+      }
+      throw new Error(e?.description||e?.message||`HTTP ${res.status}`);
+    }
     const data = await res.json();
     searchTotal = data.totalRecords||0;
     searchOffset = offset;
