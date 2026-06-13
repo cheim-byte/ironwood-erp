@@ -415,6 +415,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyioxhG6G1fc0zpsJqtGHWh
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
+const SAM_KEY_DATE_STORE = 'iw_sam_key_date'; // ISO date when key was last saved
 const DRIVE_CLIENT_ID_STORE = 'iw_drive_client_id';
 const DRIVE_FOLDER_STORE = 'iw_drive_folder';
 
@@ -507,13 +508,14 @@ function rowsToGovPayments(rows) {
 
 // Contracts serialization
 function contractsToRows() {
-  const rows = [['contractId','oppId','title','agency','contractNum','poNum','totalValue','startDate','endDate','status','paymentCadence','paymentAmount','paymentDay','netTermsGov','netTermsSub','retainage','notes']];
+  const rows = [['contractId','oppId','title','agency','contractNum','poNum','totalValue','startDate','endDate','status','paymentCadence','paymentAmount','paymentDay','netTermsGov','netTermsSub','retainage','notes','optionYears']];
   S.contracts.forEach(c => rows.push([
     c.contractId||'', c.oppId||'', c.title||'', c.agency||'',
     c.contractNum||'', c.poNum||'', c.totalValue||0,
     c.startDate||'', c.endDate||'', c.status||'active',
     c.paymentCadence||'monthly', c.paymentAmount||0, c.paymentDay||1,
-    c.netTermsGov||30, c.netTermsSub||30, c.retainage||0, c.notes||''
+    c.netTermsGov||30, c.netTermsSub||30, c.retainage||0, c.notes||'',
+    JSON.stringify(c.optionYears||[])
   ]));
   return rows;
 }
@@ -524,7 +526,8 @@ function rowsToContracts(rows) {
     startDate:r[7], endDate:r[8], status:r[9],
     paymentCadence:r[10], paymentAmount:parseFloat(r[11])||0,
     paymentDay:parseInt(r[12])||1, netTermsGov:parseInt(r[13])||30,
-    netTermsSub:parseInt(r[14])||30, retainage:parseFloat(r[15])||0, notes:r[16]||''
+    netTermsSub:parseInt(r[14])||30, retainage:parseFloat(r[15])||0, notes:r[16]||'',
+    optionYears: (() => { try { return JSON.parse(r[17]||'[]'); } catch(e) { return []; } })()
   }));
 }
 
@@ -751,6 +754,17 @@ function renderDashboard(c, ta) {
   const lost = S.winloss.filter(w=>w.outcome==='lost').length;
   const winRate = won+lost>0 ? Math.round(won/(won+lost)*100) : 0;
   const deadlines = Object.values(S.pipeline).filter(p=>p.deadline&&p.tag!=='loss').map(p=>({...p,days:Math.ceil((new Date(p.deadline)-new Date())/86400000)})).filter(p=>p.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
+  const optionAlerts = [];
+  S.contracts.forEach(ct => {
+    (ct.optionYears||[]).forEach((o,oi) => {
+      if (o.status !== 'pending') return;
+      const notifDiff = o.notifDeadline ? Math.floor((new Date(o.notifDeadline)-new Date())/86400000) : null;
+      const startDiff = o.startDate ? Math.floor((new Date(o.startDate)-new Date())/86400000) : null;
+      if ((notifDiff!==null && notifDiff<=90 && notifDiff>=0)||(startDiff!==null && startDiff<=90 && startDiff>=0)) {
+        optionAlerts.push({ ct, o, oi, notifDiff, startDiff });
+      }
+    });
+  });
 
   c.innerHTML = `
   <div class="grid4" style="margin-bottom:20px">
@@ -760,6 +774,35 @@ function renderDashboard(c, ta) {
     <div class="kpi kpi-purple"><div class="kpi-label">Subcontractors</div><div class="kpi-value">${S.subs.length}</div><div class="kpi-sub">${S.subs.filter(s=>s.status==='active').length} active</div></div>
   </div>
   <div class="grid2">
+    ${(()=>{
+      const saved = localStorage.getItem(SAM_KEY_DATE_STORE);
+      if (!saved) return '';
+      const daysLeft = 90 - Math.floor((new Date()-new Date(saved))/86400000);
+      if (daysLeft > 20) return '';
+      const color = daysLeft <= 7 ? 'var(--red2)' : 'var(--amber2)';
+      const bg = daysLeft <= 7 ? 'rgba(230,57,70,0.07)' : 'rgba(196,123,43,0.07)';
+      const brd = daysLeft <= 7 ? 'rgba(230,57,70,0.2)' : 'rgba(196,123,43,0.2)';
+      const msg = daysLeft <= 0 ? 'Your API key has expired — search will not work' : 'Your SAM.gov API key expires in '+daysLeft+' day'+(daysLeft!==1?'s':'');
+      const lbl = daysLeft <= 0 ? '🔴 SAM.gov Key EXPIRED' : '🟡 SAM.gov Key Expiring Soon';
+      return '<div style="padding:12px 16px;background:'+bg+';border:1px solid '+brd+';border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+color+';text-transform:uppercase;letter-spacing:0.1em">'+lbl+'</span><div style="font-size:13px;color:var(--cream);margin-top:2px">'+msg+'</div></div><button class="btn btn-primary btn-sm" onclick="nav(\'settings\')">Update Key →</button></div>';
+    })()}
+    ${optionAlerts.length>0?`
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title" style="margin-bottom:12px">⚡ Option Year Decisions Required</div>
+      ${optionAlerts.sort((a,b)=>(a.notifDiff??999)-(b.notifDiff??999)).map(({ct,o,oi,notifDiff,startDiff})=>{
+        const urgency = notifDiff!==null && notifDiff<=30 ? 'var(--red2)' : 'var(--amber2)';
+        const bg = notifDiff!==null && notifDiff<=30 ? 'rgba(230,57,70,0.06)' : 'rgba(196,123,43,0.06)';
+        const brd = notifDiff!==null && notifDiff<=30 ? 'rgba(230,57,70,0.2)' : 'rgba(196,123,43,0.2)';
+        return '<div style="padding:10px 14px;background:'+bg+';border:1px solid '+brd+';border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'
+          +'<div>'
+          +'<div style="font-size:13px;font-weight:600;color:var(--cream)">'+esc(trunc(ct.title,45))+'</div>'
+          +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--mist);margin-top:2px">'+esc(o.label||'Option Year')+(o.value?' · $'+fmt(o.value):'')+'</div>'
+          +(o.notifDeadline?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+urgency+';margin-top:2px">CO notification deadline: '+fmtDate(o.notifDeadline)+(notifDiff!==null?' ('+notifDiff+'d)':'')+'</div>':'')
+          +'</div>'
+          +'<button class="btn btn-primary btn-xs" onclick="openContractDetail(S.contracts.indexOf(ct),\'options\')">Review →</button>'
+          +'</div>';
+      }).join('')}
+    </div>`:''}
     <div class="card">
       <div class="card-title">Upcoming Deadlines</div>
       ${deadlines.length===0?'<div class="empty-state" style="padding:20px"><span class="empty-icon" style="font-size:24px">📅</span><div class="empty-sub">No upcoming deadlines</div></div>':
@@ -1277,7 +1320,8 @@ function renderBidTab(pid) {
         ${p.prevContractSource?`<span class="mono muted" style="font-size:10px">Source: ${esc(p.prevContractSource)}</span>`:''}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="searchUSASpending('${pid}')">🔍 Search USASpending.gov</button>
+        <button class="btn btn-primary btn-sm" onclick="searchSAMAwards('${pid}')">🔍 Search SAM.gov Awards</button>
+        <button class="btn btn-ghost btn-sm" onclick="searchUSASpending('${pid}')">Search USASpending.gov</button>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('usaSpendingResults-${pid}').style.display='none';document.getElementById('prevManualEntry-${pid}').style.display='block'">Enter Manually</button>
       </div>
       <div id="usaSpendingResults-${pid}" style="display:none;margin-bottom:12px"></div>
@@ -1763,6 +1807,18 @@ function contractCard(ct, i) {
     </div>
 
     ${nextPay ? `<div class="sched-item sched-${nextPay.status}"><span>Next: ${nextPay.label}</span><span style="font-weight:700">$${fmt(nextPay.amount)} · ${fmtDate(nextPay.date)}</span></div>` : ''}
+    ${(()=>{
+      const opts = ct.optionYears||[];
+      const pending = opts.filter(o=>o.status==='pending');
+      if (pending.length===0) return '';
+      const next = pending.sort((a,b)=>new Date(a.notifDeadline||a.startDate||0)-new Date(b.notifDeadline||b.startDate||0))[0];
+      const notifDiff = next.notifDeadline ? Math.floor((new Date(next.notifDeadline)-new Date())/86400000) : null;
+      const urgent = notifDiff!==null && notifDiff<=30;
+      return '<div class="sched-item" style="background:'+(urgent?'rgba(230,57,70,0.08)':'rgba(196,123,43,0.06)')+';border:1px solid '+(urgent?'rgba(230,57,70,0.2)':'rgba(196,123,43,0.15)')+'">'
+        +'<span style="color:'+(urgent?'var(--red2)':'var(--amber2)')+'">📅 '+(next.label||'Option Year')+' decision'+(notifDiff!==null?' ('+notifDiff+'d)':'')+' </span>'
+        +'<span style="font-weight:600;color:'+(urgent?'var(--red2)':'var(--amber2)')+'">'+(next.notifDeadline?fmtDate(next.notifDeadline):'—')+'</span>'
+        +'</div>';
+    })()}
     ${renderAttachSection('contract', ct.contractId)}
   </div>`;
 }
@@ -1794,7 +1850,7 @@ function generatePaymentSchedule(ct) {
   return schedule;
 }
 
-function openContractDetail(i) {
+function openContractDetail(i, defaultTab='schedule') {
   const ct = S.contracts[i];
   if (!ct) return;
   const assigns = S.subAssignments.filter(a=>a.contractId===ct.contractId||a.oppId===ct.oppId);
@@ -1817,11 +1873,12 @@ function openContractDetail(i) {
       </div>
       <div class="opp-tabs">
         <button class="opp-tab active" onclick="showContractTab(${i},'schedule',this)">Payment Schedule</button>
+        <button class="opp-tab" onclick="showContractTab(${i},'options',this)">Option Years ${(ct.optionYears||[]).length>0?'('+ct.optionYears.length+')':''}</button>
         <button class="opp-tab" onclick="showContractTab(${i},'subs',this)">Subcontractors</button>
         <button class="opp-tab" onclick="showContractTab(${i},'terms',this)">Terms</button>
       </div>
       <div class="opp-detail-body" id="contractDetailBody">
-        ${renderContractScheduleTab(schedule, ct)}
+        ${defaultTab==='options'?renderContractOptionsTab(ct,i):renderContractScheduleTab(schedule, ct)}
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1835,6 +1892,7 @@ function showContractTab(i, tab, btn) {
   const schedule = generatePaymentSchedule(ct);
   const body = document.getElementById('contractDetailBody');
   if (tab==='schedule') body.innerHTML = renderContractScheduleTab(schedule, ct);
+  else if (tab==='options') body.innerHTML = renderContractOptionsTab(ct, i);
   else if (tab==='subs') body.innerHTML = renderContractSubsTab(assigns, ct);
   else body.innerHTML = renderContractTermsTab(ct, i);
 }
@@ -2496,6 +2554,243 @@ async function deleteSubPay(payId) {
 }
 
 
+
+// ══ OPTION YEAR TRACKING ══════════════════════════════════════════════════════
+
+function renderContractOptionsTab(ct, ci) {
+  const opts = ct.optionYears || [];
+
+  // Status summary
+  const exercised = opts.filter(o=>o.status==='exercised');
+  const pending   = opts.filter(o=>o.status==='pending');
+  const declined  = opts.filter(o=>o.status==='declined');
+  const totalOptValue = opts.reduce((s,o)=>s+parseFloat(o.value||0),0);
+  const exercisedValue = exercised.reduce((s,o)=>s+parseFloat(o.value||0),0);
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);text-transform:uppercase;letter-spacing:0.1em">
+        ${opts.length} option year${opts.length!==1?'s':''} · $${fmt(exercisedValue)} exercised of $${fmt(totalOptValue)} potential
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openAddOptionModal(${ci})">+ Add Option Year</button>
+    </div>
+
+    ${opts.length===0
+      ? `<div class="empty-state" style="padding:30px">
+          <span class="empty-icon">📅</span>
+          <div class="empty-title">No Option Years</div>
+          <div class="empty-sub">Most federal contracts include option years. Add them here to track exercise deadlines and total contract ceiling.</div>
+          <div style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="openAddOptionModal(${ci})">+ Add Option Year</button></div>
+        </div>`
+      : `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <div class="kpi kpi-green" style="padding:10px 14px;flex:1;min-width:120px"><div class="kpi-label">Exercised</div><div class="kpi-value" style="font-size:20px">${exercised.length}</div><div class="kpi-sub">$${fmt(exercisedValue)}</div></div>
+          <div class="kpi kpi-amber" style="padding:10px 14px;flex:1;min-width:120px"><div class="kpi-label">Pending</div><div class="kpi-value" style="font-size:20px">${pending.length}</div></div>
+          <div class="kpi kpi-purple" style="padding:10px 14px;flex:1;min-width:120px"><div class="kpi-label">Total Ceiling</div><div class="kpi-value" style="font-size:20px">$${fmt(parseFloat(ct.totalValue||0)+totalOptValue)}</div><div class="kpi-sub">base + all options</div></div>
+          <div class="kpi kpi-blue" style="padding:10px 14px;flex:1;min-width:120px"><div class="kpi-label">Declined</div><div class="kpi-value" style="font-size:20px">${declined.length}</div></div>
+        </div>
+        ${opts.map((o,oi)=>{
+          const notifDiff = o.notifDeadline ? Math.floor((new Date(o.notifDeadline)-new Date())/86400000) : null;
+          const startDiff = o.startDate ? Math.floor((new Date(o.startDate)-new Date())/86400000) : null;
+          const statusColor = o.status==='exercised'?'var(--green2)':o.status==='declined'?'var(--red2)':'var(--amber2)';
+          const statusBg = o.status==='exercised'?'rgba(82,183,136,0.06)':o.status==='declined'?'rgba(230,57,70,0.04)':'rgba(196,123,43,0.06)';
+          const urgentNotif = notifDiff!==null && notifDiff>=0 && notifDiff<=30 && o.status==='pending';
+          return `<div style="background:var(--bg2);border:1px solid ${urgentNotif?'var(--amber)':'var(--border)'};border-radius:8px;margin-bottom:10px;overflow:hidden">
+
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px 10px;flex-wrap:wrap;gap:8px;background:${statusBg}">
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--cream)">${esc(o.label||'Option Year '+(oi+1))}</div>
+                <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);margin-top:2px">
+                  ${o.startDate?fmtDate(o.startDate)+' → '+fmtDate(o.endDate):'Dates not set'}
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--amber2)">$${fmt(o.value||0)}</span>
+                <span style="font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;border-radius:3px;background:rgba(255,255,255,0.05);color:${statusColor};text-transform:uppercase;border:1px solid ${statusColor}22">${o.status||'pending'}</span>
+              </div>
+            </div>
+
+            <!-- Detail grid -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding:10px 16px">
+              <div>
+                <div class="meta-k">CO Notification Deadline</div>
+                <div class="meta-v" style="color:${urgentNotif?'var(--amber2)':'var(--cream)'}">
+                  ${o.notifDeadline?fmtDate(o.notifDeadline):'—'}
+                  ${urgentNotif?` <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);">(${notifDiff}d left)</span>`:''}
+                  ${notifDiff!==null&&notifDiff<0&&o.status==='pending'?` <span style="color:var(--red2);font-size:10px;">(PASSED)</span>`:''}
+                </div>
+              </div>
+              <div>
+                <div class="meta-k">Days Until Start</div>
+                <div class="meta-v">${startDiff!==null?(startDiff>0?startDiff+' days':startDiff===0?'Today':'Started'):'—'}</div>
+              </div>
+              <div>
+                <div class="meta-k">Period</div>
+                <div class="meta-v">${o.startDate&&o.endDate?Math.round((new Date(o.endDate)-new Date(o.startDate))/86400000/30)+' months':'—'}</div>
+              </div>
+              <div>
+                <div class="meta-k">Exercised On</div>
+                <div class="meta-v">${o.exercisedDate?fmtDate(o.exercisedDate):'—'}</div>
+              </div>
+            </div>
+
+            ${urgentNotif?`<div style="margin:0 16px 10px;padding:8px 12px;background:rgba(196,123,43,0.08);border-left:3px solid var(--amber);border-radius:0 4px 4px 0;font-family:'DM Mono',monospace;font-size:11px;color:var(--amber2)">
+              ⚠ CO notification due in ${notifDiff} day${notifDiff!==1?'s':''} — confirm exercise decision with contracting officer
+            </div>`:''}
+
+            ${o.notes?`<div style="padding:0 16px 10px;font-size:12px;color:var(--mist);line-height:1.5">${esc(o.notes)}</div>`:''}
+
+            <!-- Actions -->
+            <div style="padding:8px 16px 12px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:6px;flex-wrap:wrap">
+              ${o.status==='pending'?`<button class="btn btn-primary btn-xs" onclick="exerciseOption(${ci},${oi})">✓ Mark Exercised</button>`:''}
+              ${o.status==='pending'?`<button class="btn btn-danger btn-xs" onclick="declineOption(${ci},${oi})">✕ Decline</button>`:''}
+              ${o.status==='declined'||o.status==='exercised'?`<button class="btn btn-ghost btn-xs" onclick="resetOption(${ci},${oi})">Reset to Pending</button>`:''}
+              <button class="btn btn-ghost btn-xs" onclick="editOption(${ci},${oi})">Edit</button>
+              <button class="rm-btn" onclick="deleteOption(${ci},${oi})">✕</button>
+            </div>
+          </div>`;
+        }).join('')}`}`;
+}
+
+function openAddOptionModal(ci, existing, oi) {
+  const o = existing || {};
+  const ct = S.contracts[ci];
+  // Default start = day after contract end
+  const defaultStart = ct.endDate ? new Date(new Date(ct.endDate).getTime()+86400000).toISOString().split('T')[0] : '';
+  const defaultEnd = defaultStart ? new Date(new Date(defaultStart).getTime()+365*86400000).toISOString().split('T')[0] : '';
+  const defaultNotif = ct.endDate ? new Date(new Date(ct.endDate).getTime()-60*86400000).toISOString().split('T')[0] : '';
+  const optNum = (ct.optionYears||[]).length + 1;
+
+  openModal(existing?'Edit Option Year':'Add Option Year', `
+    <div class="form-group"><label class="form-label">Label</label>
+      <input class="form-input" id="optLabel" value="${esc(o.label||'Option Year '+optNum)}" placeholder="Option Year 1">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Option Value ($)</label>
+        <input class="form-input" type="number" id="optValue" value="${o.value||''}" placeholder="e.g. 224000">
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-select" id="optStatus">
+          <option value="pending" ${(o.status||'pending')==='pending'?'selected':''}>Pending</option>
+          <option value="exercised" ${o.status==='exercised'?'selected':''}>Exercised</option>
+          <option value="declined" ${o.status==='declined'?'selected':''}>Declined</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start Date</label>
+        <input class="form-input" type="date" id="optStart" value="${o.startDate||defaultStart}">
+      </div>
+      <div class="form-group"><label class="form-label">End Date</label>
+        <input class="form-input" type="date" id="optEnd" value="${o.endDate||defaultEnd}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">CO Notification Deadline</label>
+        <input class="form-input" type="date" id="optNotif" value="${o.notifDeadline||defaultNotif}">
+        <div style="font-size:11px;color:var(--mist);margin-top:4px">Typically 60-90 days before option start. Check your contract clause.</div>
+      </div>
+      <div class="form-group"><label class="form-label">Exercised Date</label>
+        <input class="form-input" type="date" id="optExDate" value="${o.exercisedDate||''}">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="optNotes" placeholder="CO conversation, modification number, any conditions…">${esc(o.notes||'')}</textarea>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="saveOption(${ci},${oi!==undefined?oi:'undefined'})">Save Option Year</button>`,
+    true
+  );
+}
+
+async function saveOption(ci, oi) {
+  const ct = S.contracts[ci];
+  if (!ct) return;
+  if (!ct.optionYears) ct.optionYears = [];
+  const opt = {
+    label: v('optLabel')||'Option Year',
+    value: parseFloat(v('optValue'))||0,
+    status: v('optStatus')||'pending',
+    startDate: v('optStart'),
+    endDate: v('optEnd'),
+    notifDeadline: v('optNotif'),
+    exercisedDate: v('optExDate'),
+    notes: v('optNotes')
+  };
+  if (oi !== undefined && oi !== 'undefined' && !isNaN(parseInt(oi))) {
+    ct.optionYears[parseInt(oi)] = opt;
+  } else {
+    ct.optionYears.push(opt);
+  }
+  await save('Contracts');
+  closeModal();
+  toast('Option year saved ✓');
+  // Refresh the options tab
+  const body = document.getElementById('contractDetailBody');
+  if (body) body.innerHTML = renderContractOptionsTab(ct, ci);
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function exerciseOption(ci, oi) {
+  const ct = S.contracts[ci];
+  if (!ct?.optionYears?.[oi]) return;
+  ct.optionYears[oi].status = 'exercised';
+  ct.optionYears[oi].exercisedDate = new Date().toISOString().split('T')[0];
+  // Extend contract end date to option end date
+  if (ct.optionYears[oi].endDate) {
+    ct.endDate = ct.optionYears[oi].endDate;
+    ct.status = 'active';
+  }
+  logActivity(`Option year exercised: ${ct.optionYears[oi].label} — ${ct.title}`, 'var(--green2)');
+  await save('Contracts');
+  toast(`${ct.optionYears[oi].label} exercised ✓ — contract end date extended`);
+  const body = document.getElementById('contractDetailBody');
+  if (body) body.innerHTML = renderContractOptionsTab(ct, ci);
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function declineOption(ci, oi) {
+  if (!confirm('Mark this option year as declined? This will not affect the contract end date.')) return;
+  const ct = S.contracts[ci];
+  if (!ct?.optionYears?.[oi]) return;
+  ct.optionYears[oi].status = 'declined';
+  logActivity(`Option year declined: ${ct.optionYears[oi].label} — ${ct.title}`, 'var(--mist)');
+  await save('Contracts');
+  toast('Option year marked as declined');
+  const body = document.getElementById('contractDetailBody');
+  if (body) body.innerHTML = renderContractOptionsTab(ct, ci);
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+async function resetOption(ci, oi) {
+  const ct = S.contracts[ci];
+  if (!ct?.optionYears?.[oi]) return;
+  ct.optionYears[oi].status = 'pending';
+  ct.optionYears[oi].exercisedDate = '';
+  await save('Contracts');
+  toast('Option year reset to pending');
+  const body = document.getElementById('contractDetailBody');
+  if (body) body.innerHTML = renderContractOptionsTab(ct, ci);
+}
+
+async function deleteOption(ci, oi) {
+  if (!confirm('Delete this option year?')) return;
+  const ct = S.contracts[ci];
+  if (!ct?.optionYears) return;
+  ct.optionYears.splice(oi, 1);
+  await save('Contracts');
+  toast('Option year deleted');
+  const body = document.getElementById('contractDetailBody');
+  if (body) body.innerHTML = renderContractOptionsTab(ct, ci);
+  renderContracts(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+function editOption(ci, oi) {
+  const ct = S.contracts[ci];
+  if (!ct?.optionYears?.[oi]) return;
+  openAddOptionModal(ci, ct.optionYears[oi], oi);
+}
+
 // ══ AGENCIES ══════════════════════════════════════════════════════════════════
 function renderAgencies(c,ta){
   ta.innerHTML=`<button class="btn btn-primary btn-sm" onclick="openAgencyModal()">+ Add Agency</button>`;
@@ -2596,7 +2891,16 @@ function renderSettings(c,ta){
     </div>
     <div class="setting-group">
       <div class="setting-group-title">SAM.gov API Key</div>
-      <div style="font-size:13px;color:var(--mist);margin-bottom:12px;line-height:1.5">Required for live opportunity search. Free at <a href="https://sam.gov/profile/details" target="_blank">sam.gov → Account Settings</a>. Stored locally only — never sent to any server.</div>
+      <div style="font-size:13px;color:var(--mist);margin-bottom:12px;line-height:1.5">Required for live opportunity search. Free at <a href="https://sam.gov/profile/details" target="_blank">sam.gov → Account Settings</a>. Keys expire every 90 days — update promptly to keep search working. Stored in Apps Script secure storage 🔒</div>
+      ${(()=>{
+        const saved = localStorage.getItem(SAM_KEY_DATE_STORE);
+        if (!saved) return '';
+        const daysSince = Math.floor((new Date()-new Date(saved))/86400000);
+        const daysLeft = 90 - daysSince;
+        const color = daysLeft <= 7 ? 'var(--red2)' : daysLeft <= 20 ? 'var(--amber2)' : 'var(--green2)';
+        const icon = daysLeft <= 7 ? '🔴' : daysLeft <= 20 ? '🟡' : '🟢';
+        return '<div style="padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;margin-bottom:10px;font-family:\'DM Mono\',monospace;font-size:11px;color:'+color+'">'+icon+' Key saved '+daysSince+' day'+(daysSince!==1?'s':'')+' ago — <strong>'+(daysLeft>0?daysLeft+' days until expiry':'EXPIRED — renew now')+'</strong> &nbsp;·&nbsp; Next renewal: '+new Date(new Date(saved).getTime()+90*86400000).toLocaleDateString()+' &nbsp;·&nbsp; <a href="https://sam.gov/profile/details" target="_blank" style="color:var(--amber2)">Renew at SAM.gov →</a></div>';
+      })()}
       <input class="form-input" type="password" id="setSam" value="${esc(samKey)}" placeholder="Paste SAM.gov API key…">
       <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="saveSamKey()">Save Key</button>
     </div>
@@ -2671,10 +2975,14 @@ async function saveDriveSettings(){
 
 async function saveSamKey(){
   const k = v('setSam');
+  if (!k) { toast('Paste your SAM.gov API key first', true); return; }
   S.settings.samKey = k;
   localStorage.setItem(SAM_KEY_STORE, k);
+  const today = new Date().toISOString().split('T')[0];
+  localStorage.setItem(SAM_KEY_DATE_STORE, today);
   const saved = await saveSecureKey('SAM_API_KEY', k);
-  toast(saved ? 'SAM.gov key saved to secure storage ✓' : 'SAM.gov key saved locally ✓');
+  toast(saved ? 'SAM.gov key saved ✓ — expires in 90 days (' + new Date(Date.now()+90*86400000).toLocaleDateString() + ')' : 'SAM.gov key saved locally ✓');
+  renderView('settings');
 }
 
 function exportData() {
@@ -3238,6 +3546,26 @@ ${opp?`Opp: ${trunc(opp.title,60)} | ${opp.agency} | NAICS ${opp.naics}`:`Scope:
       if (!rawText || d.error) throw new Error('No AI response');
       const result = JSON.parse(rawText.replace(/```json|```/g,'').trim());
 
+      // Check SAM.gov exclusions — debarred/suspended subs must be flagged
+      let isExcluded = false;
+      let exclusionNote = '';
+      try {
+        const samKey = S.settings.samKey || localStorage.getItem(SAM_KEY_STORE) || '';
+        if (samKey && uei) {
+          const exUrl = `https://api.sam.gov/exclusions/v1/search?api_key=${samKey}&ueiSAM=${uei}&status=Active&limit=1`;
+          const exRes = await fetch(exUrl);
+          if (exRes.ok) {
+            const exData = await exRes.json();
+            const hits = exData.totalRecords || exData.exclusionDetails?.length || 0;
+            if (hits > 0) {
+              isExcluded = true;
+              const ex = exData.exclusionDetails?.[0] || {};
+              exclusionNote = ex.exclusionType || 'Debarred/Suspended';
+            }
+          }
+        }
+      } catch(exErr) { /* exclusion check failed — proceed without */ }
+
       // Skip if no contact info found
       if (!result.email && !result.phone && !result.website) {
         if (aiEl) aiEl.innerHTML = `<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No contact info found — skipped</span>`;
@@ -3251,6 +3579,7 @@ ${opp?`Opp: ${trunc(opp.title,60)} | ${opp.agency} | NAICS ${opp.naics}`:`Scope:
       const stars = '★'.repeat(result.fitScore||0) + '☆'.repeat(5-(result.fitScore||0));
 
       if (aiEl) aiEl.innerHTML = `
+        ${isExcluded ? `<div style="padding:8px 12px;background:rgba(230,57,70,0.1);border:1px solid rgba(230,57,70,0.3);border-radius:6px;margin-bottom:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--red2)">🚫 EXCLUDED FROM FEDERAL CONTRACTING — ${esc(exclusionNote)} — Do not use as subcontractor</div>` : ''}
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
           <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
           <span style="font-family:'DM Mono',monospace;font-size:12px;color:${fitColors[result.fitScore]||'var(--mist)'}">${stars}</span>
@@ -3272,9 +3601,11 @@ ${opp?`Opp: ${trunc(opp.title,60)} | ${opp.agency} | NAICS ${opp.naics}`:`Scope:
         actionsEl.style.gap = '8px';
         actionsEl.style.flexWrap = 'wrap';
         actionsEl.innerHTML = `
-          <button class="btn btn-primary btn-sm" onclick="addSubFromFinder(${idx},'${esc(name.replace(/'/g,"\'"))}','${esc(result.website||'')}','${esc(result.email||'')}','${esc(result.phone||'')}','${e._searchNaics}','${pid||''}')">
+          ${isExcluded
+            ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--red2);padding:6px 10px;background:rgba(230,57,70,0.08);border:1px solid rgba(230,57,70,0.2);border-radius:4px">🚫 Cannot add — Excluded</span>`
+            : `<button class="btn btn-primary btn-sm" onclick="addSubFromFinder(${idx},'${esc(name.replace(/'/g,"\'"))}','${esc(result.website||'')}','${esc(result.email||'')}','${esc(result.phone||'')}','${e._searchNaics}','${pid||''}')">
             + Add to Roster${pid?' & Quote':''}
-          </button>
+          </button>`}
           <a class="btn btn-ghost btn-sm" href="https://www.sam.gov/entity/${uei}/core" target="_blank">View on SAM.gov ↗</a>`;
       }
 
@@ -3330,6 +3661,189 @@ async function addSubFromFinder(idx, name, website, email, phone, naics, pid) {
 
   // Refresh subcontractors if we're on that view
   if (currentView === 'subs') renderSubs(document.getElementById('content'), document.getElementById('topbarActions'));
+}
+
+
+// ══ SAM.GOV CONTRACT AWARDS API ════════════════════════════════════════════
+
+async function searchSAMAwards(pid) {
+  const p = S.pipeline[pid];
+  if (!p) return;
+  const samKey = S.settings.samKey || localStorage.getItem(SAM_KEY_STORE) || '';
+  if (!samKey) { toast('SAM.gov API key required — go to Settings', true); return; }
+
+  const resultEl = document.getElementById(`usaSpendingResults-${pid}`);
+  const manualEl = document.getElementById(`prevManualEntry-${pid}`);
+  if (!resultEl) return;
+
+  resultEl.style.display = 'block';
+  if (manualEl) manualEl.style.display = 'none';
+  resultEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)"><div class="spinner" style="width:20px;height:20px;border-width:2px;flex-shrink:0"></div>Searching SAM.gov contract awards (NAICS: ${esc(p.naics||'')})</div>`;
+
+  try {
+    // Build query — search by NAICS, limit to contracts (not grants)
+    const params = new URLSearchParams({
+      api_key: samKey,
+      naicsCode: p.naics || '',
+      type: 'AWARD',
+      limit: 10,
+      offset: 0
+    });
+
+    // Use Contract Opportunities v2 — awards search
+    // SAM.gov awards endpoint returns awarded contracts
+    const url = `https://api.sam.gov/opportunities/v2/search?${params}&awardStatus=ACTIVE_AWARD&postedFrom=01/01/2022&postedTo=12/31/2026&limit=10&ptype=o,k,p,u,r`;
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errText = await res.text().catch(()=>'');
+      throw new Error(`SAM.gov API ${res.status}: ${errText.slice(0,150)}`);
+    }
+
+    const data = await res.json();
+    const opps = data.opportunitiesData || [];
+
+    // Filter to awards (type = 'Award Notice')
+    const awards = opps.filter(o => (o.type||'').toLowerCase().includes('award') || o.baseType === 'Award Notice');
+
+    if (awards.length === 0) {
+      // If no award notices, show all results as reference
+      if (opps.length > 0) {
+        renderSAMAwardResults(pid, opps.slice(0,8), p, true);
+      } else {
+        resultEl.innerHTML = `
+          <div style="padding:10px 14px;background:rgba(107,122,153,0.08);border:1px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">
+            No recent award notices found for NAICS ${esc(p.naics||'')} on SAM.gov.
+            <button class="btn btn-ghost btn-xs" style="margin-left:8px" onclick="searchUSASpending('${pid}')">Try USASpending.gov</button>
+            <button class="btn btn-ghost btn-xs" style="margin-left:4px" onclick="showManualEntry('${pid}')">Enter manually</button>
+          </div>`;
+      }
+    } else {
+      renderSAMAwardResults(pid, awards.slice(0,8), p, false);
+    }
+
+  } catch(e) {
+    resultEl.innerHTML = `
+      <div style="padding:10px 14px;background:rgba(230,57,70,0.07);border:1px solid rgba(230,57,70,0.2);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--red2)">
+        SAM.gov search failed: ${esc(e.message)}
+        <button class="btn btn-ghost btn-xs" style="margin-left:8px" onclick="searchUSASpending('${pid}')">Try USASpending.gov instead</button>
+      </div>`;
+  }
+}
+
+function renderSAMAwardResults(pid, awards, opp, allOpps) {
+  const resultEl = document.getElementById(`usaSpendingResults-${pid}`);
+  if (!resultEl) return;
+
+  resultEl.innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.1em">
+      ${awards.length} ${allOpps?'opportunities':'award notices'} found on SAM.gov (NAICS ${esc(opp.naics||'')}) — click to use as benchmark
+    </div>
+    ${awards.map((a,idx) => {
+      const awardAmt = parseFloat(a.award?.amount || a.awardAmount || 0);
+      const recipient = a.award?.awardee?.name || a.awardee || '—';
+      const agency = a.fullParentPathName || a.departmentName || a.organizationHierarchy?.department?.name || '—';
+      const subAgency = a.subtierName || a.organizationHierarchy?.subtier?.name || '';
+      const office = a.officeName || a.organizationHierarchy?.office?.name || '';
+      const solNum = a.solicitationNumber || a.solNum || '';
+      const title = a.title || '—';
+      const postedDate = a.postedDate || '';
+      const archiveDate = a.archiveDate || '';
+      const naicsCode = a.naicsCode || '';
+      const naicsDesc = a.naicsDescription || '';
+      const placeCity = a.placeOfPerformance?.city?.name || '';
+      const placeState = a.placeOfPerformance?.state?.code || '';
+      const location = [placeCity, placeState].filter(Boolean).join(', ') || '—';
+      const setAside = a.typeOfSetAsideDescription || a.typeOfSetAside || '';
+      const contractType = a.contractAwardType || a.awardType || '';
+
+      return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;transition:border-color 0.18s" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
+
+        <!-- Header -->
+        <div style="padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,0.04)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:var(--cream);margin-bottom:3px">${esc(trunc(title,70))}</div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2)">${esc(trunc(agency,50))}</div>
+              ${subAgency&&subAgency!==agency?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist)">${esc(trunc(subAgency,50))}</div>`:''}
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              ${awardAmt>0
+                ? `<div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--amber2);line-height:1">$${fmt(awardAmt)}</div>`
+                : `<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)">Amount not disclosed</div>`}
+              ${solNum?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${esc(solNum)}</div>`:''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:10px 16px">
+          <div><div class="meta-k">Posted</div><div class="meta-v">${fmtDate(postedDate)||'—'}</div></div>
+          <div><div class="meta-k">Location</div><div class="meta-v">${esc(location)}</div></div>
+          <div><div class="meta-k">NAICS</div><div class="meta-v">${esc(naicsCode)} ${esc(trunc(naicsDesc,20))}</div></div>
+          ${contractType?`<div><div class="meta-k">Contract Type</div><div class="meta-v">${esc(contractType)}</div></div>`:''}
+          ${setAside?`<div><div class="meta-k">Set-Aside</div><div class="meta-v">${esc(setAside)}</div></div>`:''}
+          ${recipient&&recipient!=='—'?`<div><div class="meta-k">Awardee</div><div class="meta-v">${esc(trunc(recipient,30))}</div></div>`:''}
+        </div>
+
+        <!-- AI analysis placeholder -->
+        <div id="samai-${pid}-${idx}" style="margin:0 16px 10px;padding:8px 12px;background:rgba(196,123,43,0.05);border-left:2px solid var(--amber);border-radius:0 4px 4px 0;font-size:12px;color:var(--mist);font-style:italic">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);font-style:normal;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
+          ● Analyzing relevance…
+        </div>
+
+        <!-- Actions -->
+        <div style="padding:8px 16px 12px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:8px;flex-wrap:wrap">
+          ${awardAmt>0
+            ? `<button class="btn btn-primary btn-sm" onclick="selectUSASpendingAward('${pid}',${awardAmt},'${esc(solNum)}','${esc(recipient.replace(/'/g,"\'"))}')">Use $${fmt(awardAmt)} as Benchmark</button>`
+            : ''}
+          <a class="btn btn-ghost btn-sm" href="https://sam.gov/opp/${esc(a.noticeId||a.id||solNum)}/view" target="_blank">View on SAM.gov ↗</a>
+        </div>
+      </div>`;
+    }).join('')}
+    <button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="showManualEntry('${pid}')">Enter different value manually</button>`;
+
+  // Async AI analysis for each result
+  awards.forEach((a, idx) => {
+    const awardAmt = parseFloat(a.award?.amount || a.awardAmount || 0);
+    const recipient = a.award?.awardee?.name || a.awardee || '';
+    const agency = a.fullParentPathName || a.departmentName || '';
+    const placeCity = a.placeOfPerformance?.city?.name || '';
+    const placeState = a.placeOfPerformance?.state?.code || '';
+    generateSAMAwardAISummary(pid, idx, a.title||'', agency, awardAmt, placeCity, placeState, a.naicsCode||'', a.naicsDescription||'', opp);
+  });
+}
+
+async function generateSAMAwardAISummary(pid, idx, title, agency, amount, city, state, naics, naicsDesc, opp) {
+  const el = document.getElementById(`samai-${pid}-${idx}`);
+  if (!el) return;
+  try {
+    const prompt = `Rate this SAM.gov award as a pricing benchmark. JSON only:
+{"score":<1-5>,"scoreLabel":"<Very Relevant|Relevant|Somewhat Relevant|Low Relevance|Not Relevant>","summary":"<2 sentences>","pricingInsight":"<1 sentence>"}
+Opp: ${opp.title||''} | ${opp.agency||''} | NAICS ${opp.naics||''}
+Award: ${title} | ${agency} | $${fmt(amount)} | ${city},${state} | NAICS ${naics} ${naicsDesc}`;
+
+    const payload = encodeURIComponent(JSON.stringify({
+      model: 'claude-haiku-4-5', max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }]
+    }));
+    const r = await fetch(`${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`);
+    const d = await r.json();
+    const raw = (d.content?.[0]?.text||d.text||'').replace(/```json|```/g,'').trim();
+    const result = JSON.parse(raw);
+    const scoreColors = {5:'var(--green2)',4:'var(--green2)',3:'var(--amber2)',2:'var(--mist)',1:'var(--muted)'};
+    const stars = '★'.repeat(result.score||0)+'☆'.repeat(5-(result.score||0));
+    if (el) el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em">AI Analysis</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:${scoreColors[result.score]||'var(--mist)'}">${stars}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:${scoreColors[result.score]||'var(--mist)'}">${esc(result.scoreLabel||'')}</span>
+      </div>
+      <div style="font-size:12px;color:var(--mist);line-height:1.6;margin-bottom:4px">${esc(result.summary||'')}</div>
+      ${result.pricingInsight?`<div style="font-size:11px;color:var(--amber2)">💡 ${esc(result.pricingInsight)}</div>`:''}`;
+  } catch(e) {
+    if (el) el.innerHTML = `<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">AI analysis unavailable</span>`;
+  }
 }
 
 // ══ USASPENDING.GOV API ════════════════════════════════════════════════════════
