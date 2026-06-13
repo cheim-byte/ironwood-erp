@@ -360,8 +360,13 @@ a:hover{text-decoration:underline}
 <div class="shell">
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <span class="logo-mark">Ironwood</span>
-    <span class="logo-sub">Solutions ERP</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="favicon.ico" style="width:32px;height:32px;object-fit:contain;flex-shrink:0" alt="Ironwood Solutions">
+      <div>
+        <span class="logo-mark">Ironwood</span>
+        <span class="logo-sub">Solutions ERP</span>
+      </div>
+    </div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">Main</div>
@@ -879,13 +884,11 @@ async function doSearch() {
   if (btn) btn.disabled = true;
   showSearchSpinner('Asking AI to interpret your search…');
   try {
-    const aiPayload1 = encodeURIComponent(JSON.stringify({ model:'claude-haiku-4-5', max_tokens:150,
-      messages:[{role:'user',content:`SAM.gov search params. JSON only:\n{"keywords":"2-4 words","naicsCode":"exact 6-digit NAICS or empty — never use broad codes like 562000","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"1 sentence"}\nIMPORTANT: naicsCode must be a specific leaf-level 6-digit code.\nQuery:"${q}"`}]
-    }));
-    const aiR = await fetch(`${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${aiPayload1}`);
-    const ad = await aiR.json();
     let params = {};
-    try { params = JSON.parse(ad.content[0].text.replace(/```json|```/g,'').trim()); } catch(e) { params = {keywords:q.split(' ').slice(0,3).join(' ')}; }
+    try {
+      const aiText1 = await callAI(`SAM.gov search params. JSON only:\n{"keywords":"2-4 words","naicsCode":"exact 6-digit NAICS or empty — never use broad codes like 562000","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"1 sentence"}\nIMPORTANT: naicsCode must be a specific leaf-level 6-digit code.\nQuery:"${q}"`, 150);
+      params = JSON.parse(aiText1);
+    } catch(e) { params = {keywords:q.split(' ').slice(0,3).join(' ')}; }
     // Validate NAICS — must be exactly 6 digits, reject broad codes
     if (params.naicsCode && !/^\d{6}$/.test(params.naicsCode)) { console.log('Invalid NAICS stripped:', params.naicsCode); delete params.naicsCode; }
     lastKeywords = params.keywords || q;
@@ -990,12 +993,8 @@ async function genSummary(pid, o) {
   const el = document.getElementById(`sum-${pid}`);
   if (!el) return;
   try {
-    const aiPayload2 = encodeURIComponent(JSON.stringify({ model:'claude-haiku-4-5', max_tokens:120,
-      messages:[{role:'user',content:`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`}]
-    }));
-    const r = await fetch(`${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${aiPayload2}`);
-    const d=await r.json();
-    if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div>${esc(d.content?.[0]?.text||'Unavailable')}`;
+    const aiText2 = await callAI(`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`, 120);
+    if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div>${esc(aiText2||'Unavailable')}`;
   } catch(e) { if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div><span class="muted" style="font-size:11px">Unavailable</span>`; }
 }
 
@@ -3558,12 +3557,8 @@ ${opp?`Opp: ${trunc(opp.title,60)} | ${opp.agency} | NAICS ${opp.naics}`:`Scope:
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       }));
-      const url = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
-      const r = await fetch(url);
-      const d = await r.json();
-      const rawText = d.content?.[0]?.text || d.text || '';
-      if (!rawText || d.error) throw new Error('No AI response');
-      const result = JSON.parse(rawText.replace(/```json|```/g,'').trim());
+      const rawSF = await callAI(prompt, 200);
+      const result = JSON.parse(rawSF);
 
       // Check SAM.gov exclusions — debarred/suspended subs must be flagged
       let isExcluded = false;
@@ -3842,14 +3837,8 @@ async function generateSAMAwardAISummary(pid, idx, title, agency, amount, city, 
 Opp: ${opp.title||''} | ${opp.agency||''} | NAICS ${opp.naics||''}
 Award: ${title} | ${agency} | $${fmt(amount)} | ${city},${state} | NAICS ${naics} ${naicsDesc}`;
 
-    const payload = encodeURIComponent(JSON.stringify({
-      model: 'claude-haiku-4-5', max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }]
-    }));
-    const r = await fetch(`${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`);
-    const d = await r.json();
-    const raw = (d.content?.[0]?.text||d.text||'').replace(/```json|```/g,'').trim();
-    const result = JSON.parse(raw);
+    const rawSA = await callAI(prompt, 300);
+    const result = JSON.parse(rawSA);
     const scoreColors = {5:'var(--green2)',4:'var(--green2)',3:'var(--amber2)',2:'var(--mist)',1:'var(--muted)'};
     const stars = '★'.repeat(result.score||0)+'☆'.repeat(5-(result.score||0));
     if (el) el.innerHTML = `
@@ -4048,18 +4037,8 @@ Contract: ${recip} | ${agency} | $${fmt(amount)} | ${start}→${end} | ${state} 
 Desc: ${desc.slice(0,150)}`;
 
     // Use GET request — Apps Script GET doesn't have CORS issues unlike POST
-    const payload = encodeURIComponent(JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }]
-    }));
-    const aiUrl = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
-    const r = await fetch(aiUrl);
-    const d = await r.json();
-    const rawText = d.content?.[0]?.text || d.text || '';
-    if (!rawText || d.error) throw new Error(d.error?.message || d.error || 'Empty response');
-    const raw = rawText.replace(/```json|```/g,'').trim();
-    const result = JSON.parse(raw);
+    const raw3 = await callAI(prompt, 300);
+    const result = JSON.parse(raw3);
 
     const scoreColors = { 5:'var(--green2)', 4:'var(--green2)', 3:'var(--amber2)', 2:'var(--mist)', 1:'var(--muted)' };
     const scoreColor = scoreColors[result.score] || 'var(--mist)';
@@ -4099,6 +4078,24 @@ async function selectUSASpendingAward(pid, amount, awardId, recipient) {
 function showManualEntry(pid) {
   const el = document.getElementById(`prevManualEntry-${pid}`);
   if (el) el.style.display = 'block';
+}
+
+// ══ AI PROXY HELPER ═══════════════════════════════════════════════════════════
+// Routes AI calls through Apps Script — uses GET to avoid CORS preflight
+async function callAI(prompt, maxTokens=200, model='claude-haiku-4-5') {
+  const payload = encodeURIComponent(JSON.stringify({
+    model, max_tokens: maxTokens,
+    messages: [{ role: 'user', content: prompt }]
+  }));
+  // Use no-cors mode first attempt won't work for reading response
+  // Instead ensure URL stays under 8KB limit
+  const url = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) throw new Error(`AI proxy ${res.status}`);
+  const d = await res.json();
+  const text = d.content?.[0]?.text || d.text || '';
+  if (!text || d.error) throw new Error(d.error?.message || 'No response');
+  return text.replace(/```json|```/g,'').trim();
 }
 
 // ══ SECURE KEY MANAGEMENT ═════════════════════════════════════════════════════
