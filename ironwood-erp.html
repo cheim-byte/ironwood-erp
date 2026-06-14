@@ -900,7 +900,7 @@ async function doSearch() {
 
 async function fetchSAM(params, offset) {
   const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
-  const limit = parseInt(document.getElementById('fLimit')?.value||10);
+  const limit = parseInt(document.getElementById('fLimit')?.value||5);
   searchLimit = limit;
   const hasKeywords = params.keywords && params.keywords.trim();
   const hasNaics = params.naicsCode && /^\d{6}$/.test(params.naicsCode);
@@ -910,7 +910,7 @@ async function fetchSAM(params, offset) {
 
   // Build URL manually — SAM.gov rejects URL-encoded slashes in postedFrom date
   function buildSAMUrl(includeNaics) {
-    let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=${offset}&postedFrom=${postedFrom()}`;
+    let url = `https://api.sam.gov/prod/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=${offset}&postedFrom=${postedFrom()}`;
     if (hasKeywords) url += `&q=${encodeURIComponent(params.keywords)}`;
     if (includeNaics && hasNaics && !hasKeywords) url += `&naicsCode=${params.naicsCode}`;
     if (fN) url += `&noticeType=${encodeURIComponent(fN)}`;
@@ -3716,7 +3716,7 @@ async function searchSAMAwards(pid) {
 
     // Use Contract Opportunities v2 — awards search
     // SAM.gov awards endpoint returns awarded contracts
-    const url = `https://api.sam.gov/opportunities/v2/search?${params}&awardStatus=ACTIVE_AWARD&postedFrom=01/01/2022&postedTo=12/31/2026&limit=10&ptype=o,k,p,u,r`;
+    const url = `https://api.sam.gov/prod/opportunities/v2/search?${params}&awardStatus=ACTIVE_AWARD&postedFrom=01/01/2022&postedTo=12/31/2026&limit=10&ptype=o,k,p,u,r`;
 
     const res = await fetch(url);
     if (!res.ok) {
