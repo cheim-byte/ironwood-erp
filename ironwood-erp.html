@@ -882,20 +882,93 @@ async function doSearch() {
   searchOffset = 0;
   const btn = document.getElementById('searchBtn');
   if (btn) btn.disabled = true;
-  showSearchSpinner('Asking AI to interpret your search…');
+  showSearchSpinner('Asking AI to identify NAICS codes…');
   try {
-    let params = {};
+    // Ask Claude to return a list of related NAICS codes — no keyword search
+    let naicsList = [];
+    let explanation = '';
     try {
-      const aiText1 = await callAI(`SAM.gov search params. JSON only:\n{"keywords":"2-4 words","naicsCode":"exact 6-digit NAICS or empty — never use broad codes like 562000","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty","explanation":"1 sentence"}\nIMPORTANT: naicsCode must be a specific leaf-level 6-digit code.\nQuery:"${q}"`, 150);
-      params = JSON.parse(aiText1);
-    } catch(e) { params = {keywords:q.split(' ').slice(0,3).join(' ')}; }
-    // Validate NAICS — must be exactly 6 digits, reject broad codes
-    if (params.naicsCode && !/^\d{6}$/.test(params.naicsCode)) { console.log('Invalid NAICS stripped:', params.naicsCode); delete params.naicsCode; }
-    lastKeywords = params.keywords || q;
-    showSearchSpinner(`Fetching from SAM.gov: "${lastKeywords}"…`);
-    await fetchSAM(params, 0);
+      const aiText1 = await callAI(`Convert this search query to a list of related federal contracting NAICS codes. Return JSON only:
+{"naicsCodes":["561730","561210"],"explanation":"1 sentence why these codes match","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty"}
+Rules: include 2-5 most relevant 6-digit NAICS codes, ordered by relevance. Never include broad codes ending in 000 or 00.
+Query: "${q}"`, 200);
+      const parsed = JSON.parse(aiText1);
+      naicsList = (parsed.naicsCodes || []).filter(n => /^\d{6}$/.test(n)).slice(0, 5);
+      explanation = parsed.explanation || '';
+      // Carry filters through
+      window._lastSearchFilters = {
+        noticeType: parsed.noticeType || '',
+        setAside: parsed.setAside || '',
+        state: parsed.state || ''
+      };
+    } catch(e) { /* fall through to keyword search */ }
+
+    if (naicsList.length === 0) {
+      // Fallback: keyword search if NAICS lookup fails
+      showSearchSpinner(`Searching SAM.gov for "${q}"…`);
+      await fetchSAM({ keywords: q.split(' ').slice(0,3).join(' ') }, 0);
+      return;
+    }
+
+    showSearchSpinner(`Searching ${naicsList.length} NAICS codes: ${naicsList.join(', ')}…`);
+    lastKeywords = explanation || q;
+
+    // Show explanation
+    const explEl = document.getElementById('searchExplanation');
+    if (explEl) {
+      explEl.innerHTML = `<div style="padding:8px 14px;background:rgba(196,123,43,0.07);border:1px solid rgba(196,123,43,0.15);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--amber2);margin-bottom:12px">
+        🎯 Searching NAICS: <strong>${naicsList.join(', ')}</strong> &nbsp;·&nbsp; ${esc(explanation)}
+      </div>`;
+      explEl.style.display = 'block';
+    }
+
+    // Search each NAICS and collect results
+    const allResults = [];
+    const seen = new Set();
+    for (const naics of naicsList) {
+      try {
+        const results = await fetchSAMByNaics(naics, window._lastSearchFilters || {});
+        results.forEach(r => {
+          const id = r.noticeId || r.solicitationNumber || r.title;
+          if (!seen.has(id)) { seen.add(id); allResults.push({ ...r, _matchedNaics: naics }); }
+        });
+      } catch(e) { /* skip failed NAICS */ }
+    }
+
+    // Sort by posted date descending
+    allResults.sort((a,b) => new Date(b.postedDate||0) - new Date(a.postedDate||0));
+    searchTotal = allResults.length;
+    searchOffset = 0;
+    renderSearchResults(allResults.slice(0, parseInt(document.getElementById('fLimit')?.value||10)), explanation);
+
   } catch(e) { showSearchErr(`Search failed: ${e.message}`); }
   finally { if (btn) btn.disabled = false; }
+}
+
+async function fetchSAMByNaics(naics, filters) {
+  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
+  const limit = Math.min(parseInt(document.getElementById('fLimit')?.value||10), 10);
+  const fN = document.getElementById('fNotice')?.value || filters.noticeType || '';
+  const fS = document.getElementById('fSetAside')?.value || filters.setAside || '';
+  const fSt = document.getElementById('fState')?.value || filters.state || '';
+
+  let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=0&postedFrom=${postedFrom()}&naicsCode=${naics}`;
+  if (fN) url += `&noticeType=${encodeURIComponent(fN)}`;
+  if (fS) url += `&typeOfSetAside=${encodeURIComponent(fS)}`;
+  if (fSt) url += `&placeOfPerformanceState=${encodeURIComponent(fSt)}`;
+
+  const proxyUrl = `${API_URL}?token=${SECRET}&action=samgov&sheetUrl=${encodeURIComponent(SHEET_URL)}&url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error(`Proxy ${res.status}`);
+  const proxy = await res.json();
+  if (proxy.error) {
+    if (proxy.error.includes('429') || proxy.error.includes('quota')) {
+      localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
+      throw new Error(`Quota reached: ${proxy.error}`);
+    }
+    throw new Error(proxy.error);
+  }
+  return (proxy.data || proxy).opportunitiesData || [];
 }
 
 async function fetchSAM(params, offset) {
