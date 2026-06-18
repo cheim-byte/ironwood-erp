@@ -417,7 +417,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbxDYfcFzq-eWcB01yKD_dgzUF2_O3z2EGcnDNL2gioa3QQwMhNZX1K3wlr5jw-VJhYUgQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwjZ1oFoCkQEexbMBh6kNuVXxVKqsxwM90QeWGUYqQDv-igTxKc0zUoPdaoWJbfPL4v/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -952,15 +952,18 @@ async function fetchSAMByNaics(naics, filters) {
   const fS = document.getElementById('fSetAside')?.value || filters.setAside || '';
   const fSt = document.getElementById('fState')?.value || filters.state || '';
 
-  const pfrom = postedFrom();
-  const pto = `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`;
-  let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=0&postedFrom=${pfrom}&postedTo=${pto}&naicsCode=${naics}`;
-  if (fN) url += `&noticeType=${encodeURIComponent(fN)}`;
-  if (fS) url += `&typeOfSetAside=${encodeURIComponent(fS)}`;
-  if (fSt) url += `&placeOfPerformanceState=${encodeURIComponent(fSt)}`;
+  // Send params separately — let Apps Script build the URL to avoid double-encoding
+  const params = new URLSearchParams({
+    token: SECRET, action: 'samgov', sheetUrl: SHEET_URL,
+    samKey, limit, naicsCode: naics,
+    postedFrom: postedFrom(),
+    postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`
+  });
+  if (fN) params.set('noticeType', fN);
+  if (fS) params.set('typeOfSetAside', fS);
+  if (fSt) params.set('placeOfPerformanceState', fSt);
 
-  const proxyUrl = `${API_URL}?token=${SECRET}&action=samgov&sheetUrl=${encodeURIComponent(SHEET_URL)}&url=${encodeURIComponent(url)}`;
-  const res = await fetch(proxyUrl);
+  const res = await fetch(`${API_URL}?${params}`);
   if (!res.ok) throw new Error(`Proxy ${res.status}`);
   const proxy = await res.json();
   if (proxy.error) {
@@ -1049,7 +1052,7 @@ function renderSearchResults(opps, explanation) {
         <div class="opp-bottom">
           <span class="mono" style="font-size:11px;color:${urgent?'var(--red2)':'var(--mist)'}">${deadline?`⏱ Due: ${fmtDate(deadline)}${urgent?' — URGENT':''}`:(`Archive: `+fmtDate(o.archiveDate))}</span>
           <div style="display:flex;gap:7px;align-items:center">
-            <select class="tag-sel" onchange="tagOpp('${pid}',this.value,${JSON.stringify(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url}))})">
+            <select class="tag-sel" data-pid="${pid}" data-meta="${esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url}))}" onchange="tagOppFromSelect(this)">
               <option value="">+ Pipeline</option>
               ${Object.entries(TAG_LABELS).map(([vv,l])=>`<option value="${vv}" ${tagged===vv?'selected':''}>${l}</option>`).join('')}
             </select>
@@ -1075,6 +1078,13 @@ async function genSummary(pid, o) {
     const aiText2 = await callAI(`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`, 120);
     if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div>${esc(aiText2||'Unavailable')}`;
   } catch(e) { if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div><span class="muted" style="font-size:11px">Unavailable</span>`; }
+}
+
+function tagOppFromSelect(sel) {
+  const pid = sel.dataset.pid;
+  const tag = sel.value;
+  const metaJson = sel.dataset.meta;
+  if (pid && metaJson) tagOpp(pid, tag, metaJson);
 }
 
 async function tagOpp(pid, tag, metaJson) {
