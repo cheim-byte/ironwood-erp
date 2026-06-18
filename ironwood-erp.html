@@ -417,7 +417,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbzoR3lfIqEEeEJenD8E-PX1gIIxjvwlGRhgkF7EzG_YFd1COiFesyn0c3mNr4MoseZQxQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxDYfcFzq-eWcB01yKD_dgzUF2_O3z2EGcnDNL2gioa3QQwMhNZX1K3wlr5jw-VJhYUgQ/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -952,7 +952,9 @@ async function fetchSAMByNaics(naics, filters) {
   const fS = document.getElementById('fSetAside')?.value || filters.setAside || '';
   const fSt = document.getElementById('fState')?.value || filters.state || '';
 
-  let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=0&postedFrom=${postedFrom()}&naicsCode=${naics}`;
+  const pfrom = postedFrom();
+  const pto = `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`;
+  let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=0&postedFrom=${pfrom}&postedTo=${pto}&naicsCode=${naics}`;
   if (fN) url += `&noticeType=${encodeURIComponent(fN)}`;
   if (fS) url += `&typeOfSetAside=${encodeURIComponent(fS)}`;
   if (fSt) url += `&placeOfPerformanceState=${encodeURIComponent(fSt)}`;
