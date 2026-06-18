@@ -417,7 +417,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbyioxhG6G1fc0zpsJqtGHWhTqZ-ChGkwi6Rnr8UYX0Q5KQRfVLVydGCe-14Ez1srAUm4g/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzoR3lfIqEEeEJenD8E-PX1gIIxjvwlGRhgkF7EzG_YFd1COiFesyn0c3mNr4MoseZQxQ/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -910,7 +910,7 @@ async function fetchSAM(params, offset) {
 
   // Build URL manually — SAM.gov rejects URL-encoded slashes in postedFrom date
   function buildSAMUrl(includeNaics) {
-    let url = `https://api.sam.gov/prod/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=${offset}&postedFrom=${postedFrom()}`;
+    let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=${offset}&postedFrom=${postedFrom()}`;
     if (hasKeywords) url += `&q=${encodeURIComponent(params.keywords)}`;
     if (includeNaics && hasNaics && !hasKeywords) url += `&naicsCode=${params.naicsCode}`;
     if (fN) url += `&noticeType=${encodeURIComponent(fN)}`;
@@ -920,27 +920,21 @@ async function fetchSAM(params, offset) {
   }
 
   try {
-    const res = await fetch(buildSAMUrl(true));
-    if (!res.ok) {
-      const e = await res.json().catch(()=>({}));
-      // Don't retry on rate limit — show clear message
-      if (res.status === 429) {
-        const resetMsg = e?.description || e?.message || '';
-        const resetTime = resetMsg.match(/\d{4}-\w+-\d+ \d+:\d+:\d+/)?.[0] || 'midnight UTC';
-        throw new Error(`Daily SAM.gov quota reached — resets at ${resetTime}. Try again tomorrow or reduce search frequency.`);
+    // Route through Apps Script to avoid CORS on SAM.gov direct requests
+    const samUrl = buildSAMUrl(true);
+    const samRes = await fetch(`${API_URL}?token=${SECRET}&action=samgov&sheetUrl=${encodeURIComponent(SHEET_URL)}&url=${encodeURIComponent(samUrl)}`);
+    if (!samRes.ok) throw new Error(`Proxy ${samRes.status}`);
+    const samProxy = await samRes.json();
+    if (samProxy.error) {
+      const msg = samProxy.error || '';
+      if (msg.includes('429') || msg.includes('quota')) {
+        localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
+        const resetTime = msg.match(/\d{4}-\w+-\d+ \d+:\d+:\d+/)?.[0] || 'midnight UTC';
+        throw new Error(`Daily SAM.gov quota reached — resets at ${resetTime}`);
       }
-      // Retry without NAICS only for non-rate-limit errors
-      if (hasNaics && !hasKeywords) {
-        const res2 = await fetch(buildSAMUrl(false));
-        if (!res2.ok) { const e2=await res2.json().catch(()=>({})); throw new Error(e2?.description||e2?.message||`HTTP ${res2.status}`); }
-        const data2 = await res2.json();
-        searchTotal = data2.totalRecords||0; searchOffset = offset;
-        renderSearchResults(data2.opportunitiesData||[], params.explanation||'');
-        return;
-      }
-      throw new Error(e?.description||e?.message||`HTTP ${res.status}`);
+      throw new Error(msg);
     }
-    const data = await res.json();
+    const data = samProxy.data || samProxy;
     searchTotal = data.totalRecords||0; searchOffset = offset;
     renderSearchResults(data.opportunitiesData||[], params.explanation||'');
   } catch(e) {
@@ -3716,7 +3710,7 @@ async function searchSAMAwards(pid) {
 
     // Use Contract Opportunities v2 — awards search
     // SAM.gov awards endpoint returns awarded contracts
-    const url = `https://api.sam.gov/prod/opportunities/v2/search?${params}&awardStatus=ACTIVE_AWARD&postedFrom=01/01/2022&postedTo=12/31/2026&limit=10&ptype=o,k,p,u,r`;
+    const url = `https://api.sam.gov/opportunities/v2/search?${params}&awardStatus=ACTIVE_AWARD&postedFrom=01/01/2022&postedTo=12/31/2026&limit=10&ptype=o,k,p,u,r`;
 
     const res = await fetch(url);
     if (!res.ok) {
