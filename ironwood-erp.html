@@ -912,7 +912,7 @@ async function doSearch(offsetOverride) {
     if (proxy.error) {
       if (proxy.error.includes('429') || proxy.error.includes('quota')) {
         localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
-        throw new Error('Daily SAM.gov quota reached — resets at midnight UTC');
+        throw new Error('SAM.gov: ' + proxy.error);
       }
       throw new Error(proxy.error);
     }
