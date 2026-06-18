@@ -849,8 +849,8 @@ function renderSearch(c, ta) {
   <div class="search-hero-inner">
     <div class="ai-label">Natural Language Search <span class="ai-badge">AI Powered</span></div>
     <div class="search-row">
-      <textarea class="search-ta" id="aiQuery" rows="1" placeholder="e.g. facilities management in Pennsylvania for small businesses…" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doSearch()}"></textarea>
-      <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">Search →</button>
+      <input class="search-ta" id="aiQuery" type="text" placeholder="Filter by keyword — or leave blank to pull all results for selected state/type…" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" style="height:42px">
+      <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">Pull Results →</button>
     </div>
     <div class="chips">
       <span class="chip" onclick="setQ(this)">project management services PA</span>
@@ -874,237 +874,97 @@ function renderSearch(c, ta) {
   </div>`;
 }
 
-async function doSearch() {
+async function doSearch(offsetOverride) {
   const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
   if (!samKey) { toast('Add your SAM.gov API key in Settings first', true); nav('settings'); return; }
-  const q = document.getElementById('aiQuery')?.value?.trim();
-  if (!q) return;
-  searchOffset = 0;
+
   const btn = document.getElementById('searchBtn');
   if (btn) btn.disabled = true;
-  showSearchSpinner('Asking AI to identify NAICS codes…');
-  try {
-    // Ask Claude to return a list of related NAICS codes — no keyword search
-    let naicsList = [];
-    let explanation = '';
-    try {
-      const aiText1 = await callAI(`Convert this search query to a list of related federal contracting NAICS codes. Return JSON only:
-{"naicsCodes":["561730","561210"],"explanation":"1 sentence why these codes match","noticeType":"o/p/k/r/a or empty","setAside":"SBA/8A/HZC/WOSB/SDVOSB or empty","state":"2-letter or empty"}
-Rules: include 2-5 most relevant 6-digit NAICS codes, ordered by relevance. Never include broad codes ending in 000 or 00.
-Query: "${q}"`, 200);
-      const parsed = JSON.parse(aiText1);
-      naicsList = (parsed.naicsCodes || []).filter(n => /^\d{6}$/.test(n)).slice(0, 5);
-      explanation = parsed.explanation || '';
-      // Carry filters through
-      window._lastSearchFilters = {
-        noticeType: parsed.noticeType || '',
-        setAside: parsed.setAside || '',
-        state: parsed.state || ''
-      };
-    } catch(e) { /* fall through to keyword search */ }
 
-    if (naicsList.length === 0) {
-      // Fallback: keyword search if NAICS lookup fails
-      showSearchSpinner(`Searching SAM.gov for "${q}"…`);
-      await fetchSAM({ keywords: q.split(' ').slice(0,3).join(' ') }, 0);
-      return;
+  const explEl = document.getElementById('searchExplanation');
+  if (explEl) explEl.style.display = 'none';
+
+  // Collect all active filters
+  const fNotice = document.getElementById('fNotice')?.value || '';
+  const fSetAside = document.getElementById('fSetAside')?.value || '';
+  const fState = document.getElementById('fState')?.value || '';
+  const q = document.getElementById('aiQuery')?.value?.trim() || '';
+
+  showSearchSpinner('Fetching from SAM.gov…');
+
+  try {
+    // Send params to Apps Script — it builds the URL cleanly
+    const params = new URLSearchParams({
+      token: SECRET, action: 'samgov', sheetUrl: SHEET_URL,
+      samKey,
+      limit: 100,
+      offset: offsetOverride || 0,
+      postedFrom: postedFrom(),
+      postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`
+    });
+    if (fNotice) params.set('noticeType', fNotice);
+    if (fSetAside) params.set('typeOfSetAside', fSetAside);
+    if (fState) params.set('placeOfPerformanceState', fState);
+
+    const res = await fetch(`${API_URL}?${params}`);
+    if (!res.ok) throw new Error(`Proxy ${res.status}`);
+    const proxy = await res.json();
+    if (proxy.error) {
+      if (proxy.error.includes('429') || proxy.error.includes('quota')) {
+        localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
+        throw new Error('Daily SAM.gov quota reached — resets at midnight UTC');
+      }
+      throw new Error(proxy.error);
     }
 
-    showSearchSpinner(`Searching ${naicsList.length} NAICS codes: ${naicsList.join(', ')}…`);
-    lastKeywords = explanation || q;
+    let results = (proxy.data || proxy).opportunitiesData || [];
+    searchTotal = (proxy.data || proxy).totalRecords || results.length;
+
+    // Client-side keyword filter if query entered
+    if (q) {
+      const terms = q.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+      results = results.filter(o => {
+        const text = ((o.title||'') + ' ' + (o.description||'') + ' ' + (o.naicsCode||'')).toLowerCase();
+        return terms.some(t => text.includes(t));
+      });
+    }
+
+    // Sort by deadline soonest (default)
+    const now = new Date();
+    results.sort((a, b) => {
+      const dA = a.responseDeadLine ? new Date(a.responseDeadLine) : new Date('2099-01-01');
+      const dB = b.responseDeadLine ? new Date(b.responseDeadLine) : new Date('2099-01-01');
+      // Push past deadlines to end
+      if (dA < now && dB >= now) return 1;
+      if (dB < now && dA >= now) return -1;
+      return dA - dB;
+    });
 
     // Show explanation
-    const explEl = document.getElementById('searchExplanation');
     if (explEl) {
+      const filterParts = [];
+      if (fState) filterParts.push(fState);
+      if (fNotice) filterParts.push(fNotice);
+      if (fSetAside) filterParts.push(fSetAside);
+      if (q) filterParts.push(`keyword: "${q}"`);
       explEl.innerHTML = `<div style="padding:8px 14px;background:rgba(196,123,43,0.07);border:1px solid rgba(196,123,43,0.15);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--amber2);margin-bottom:12px">
-        🎯 Searching NAICS: <strong>${naicsList.join(', ')}</strong> &nbsp;·&nbsp; ${esc(explanation)}
+        📋 ${results.length} results${results.length < searchTotal ? ' (filtered from '+searchTotal+')':''} · sorted by deadline soonest${filterParts.length?' · '+filterParts.join(' · '):''}
       </div>`;
       explEl.style.display = 'block';
     }
 
-    // Search each NAICS and collect results
-    const allResults = [];
-    const seen = new Set();
-    for (const naics of naicsList) {
-      try {
-        const results = await fetchSAMByNaics(naics, window._lastSearchFilters || {});
-        results.forEach(r => {
-          const id = r.noticeId || r.solicitationNumber || r.title;
-          if (!seen.has(id)) { seen.add(id); allResults.push({ ...r, _matchedNaics: naics }); }
-        });
-      } catch(e) { /* skip failed NAICS */ }
-    }
+    renderSearchResults(results, q || 'federal contract opportunities');
 
-    // Sort by posted date descending
-    allResults.sort((a,b) => new Date(b.postedDate||0) - new Date(a.postedDate||0));
-    searchTotal = allResults.length;
-    searchOffset = 0;
-    renderSearchResults(allResults.slice(0, parseInt(document.getElementById('fLimit')?.value||10)), explanation);
-
-  } catch(e) { showSearchErr(`Search failed: ${e.message}`); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-async function fetchSAMByNaics(naics, filters) {
-  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
-  const limit = Math.min(parseInt(document.getElementById('fLimit')?.value||10), 10);
-  const fN = document.getElementById('fNotice')?.value || filters.noticeType || '';
-  const fS = document.getElementById('fSetAside')?.value || filters.setAside || '';
-  const fSt = document.getElementById('fState')?.value || filters.state || '';
-
-  // Send params separately — let Apps Script build the URL to avoid double-encoding
-  const params = new URLSearchParams({
-    token: SECRET, action: 'samgov', sheetUrl: SHEET_URL,
-    samKey, limit, naicsCode: naics,
-    postedFrom: postedFrom(),
-    postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`
-  });
-  if (fN) params.set('noticeType', fN);
-  if (fS) params.set('typeOfSetAside', fS);
-  if (fSt) params.set('placeOfPerformanceState', fSt);
-
-  const res = await fetch(`${API_URL}?${params}`);
-  if (!res.ok) throw new Error(`Proxy ${res.status}`);
-  const proxy = await res.json();
-  if (proxy.error) {
-    if (proxy.error.includes('429') || proxy.error.includes('quota')) {
-      localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
-      throw new Error(`Quota reached: ${proxy.error}`);
-    }
-    throw new Error(proxy.error);
-  }
-  return (proxy.data || proxy).opportunitiesData || [];
-}
-
-async function fetchSAM(params, offset) {
-  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
-  const limit = parseInt(document.getElementById('fLimit')?.value||5);
-  searchLimit = limit;
-  const hasKeywords = params.keywords && params.keywords.trim();
-  const hasNaics = params.naicsCode && /^\d{6}$/.test(params.naicsCode);
-  const fN = document.getElementById('fNotice')?.value||params.noticeType||'';
-  const fS = document.getElementById('fSetAside')?.value||params.setAside||'';
-  const fSt = document.getElementById('fState')?.value||params.state||'';
-
-  // Build URL manually — SAM.gov rejects URL-encoded slashes in postedFrom date
-  function buildSAMUrl(includeNaics) {
-    let url = `https://api.sam.gov/opportunities/v2/search?api_key=${samKey}&limit=${limit}&offset=${offset}&postedFrom=${postedFrom()}`;
-    if (hasKeywords) url += `&q=${encodeURIComponent(params.keywords)}`;
-    if (includeNaics && hasNaics && !hasKeywords) url += `&naicsCode=${params.naicsCode}`;
-    if (fN) url += `&noticeType=${encodeURIComponent(fN)}`;
-    if (fS) url += `&typeOfSetAside=${encodeURIComponent(fS)}`;
-    if (fSt) url += `&placeOfPerformanceState=${encodeURIComponent(fSt)}`;
-    return url;
-  }
-
-  try {
-    // Route through Apps Script to avoid CORS on SAM.gov direct requests
-    const samUrl = buildSAMUrl(true);
-    const samRes = await fetch(`${API_URL}?token=${SECRET}&action=samgov&sheetUrl=${encodeURIComponent(SHEET_URL)}&url=${encodeURIComponent(samUrl)}`);
-    if (!samRes.ok) throw new Error(`Proxy ${samRes.status}`);
-    const samProxy = await samRes.json();
-    if (samProxy.error) {
-      const msg = samProxy.error || '';
-      if (msg.includes('429') || msg.includes('quota')) {
-        localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
-        const resetTime = msg.match(/\d{4}-\w+-\d+ \d+:\d+:\d+/)?.[0] || 'midnight UTC';
-        throw new Error(`Daily SAM.gov quota reached — resets at ${resetTime}`);
-      }
-      throw new Error(msg);
-    }
-    const data = samProxy.data || samProxy;
-    searchTotal = data.totalRecords||0; searchOffset = offset;
-    renderSearchResults(data.opportunitiesData||[], params.explanation||'');
   } catch(e) {
     if (e.message.includes('quota') || e.message.includes('429')) {
       localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
     }
     showSearchErr(`SAM.gov error: ${e.message}`);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
-function renderSearchResults(opps, explanation) {
-  const el = document.getElementById('searchResults');
-  const pag = document.getElementById('searchPag');
-  if (!el) return;
-  if (opps.length===0) { el.innerHTML=`<div class="empty-state"><span class="empty-icon">🔍</span><div class="empty-title">No Results</div><div class="empty-sub">Try broader terms.</div></div>`; if(pag)pag.style.display='none'; return; }
-  el.innerHTML = `<div class="mono muted" style="margin-bottom:14px;font-size:11px">${searchTotal.toLocaleString()} opportunities${explanation?' — '+esc(explanation):''}</div>` +
-    opps.map((o,i) => {
-      const type=(o.type||'').toLowerCase();
-      const pid=o.noticeId||`opp${i}`;
-      const tagged=S.pipeline[pid]?.tag||'';
-      const agency=trunc(o.fullParentPathName||o.departmentName||'—',45);
-      const deadline=o.responseDeadLine||'';
-      const urgent=isUrgent(deadline);
-      const url=o.uiLink||`https://sam.gov/opp/${o.noticeId}/view`;
-      return `<div class="opp-card ${tagged?'tagged-'+tagged:''} fade-in" style="animation-delay:${i*0.025}s" id="oc-${pid}">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
-          <div class="opp-title">${esc(o.title||'Untitled')}</div>
-          <div style="display:flex;gap:6px;flex-shrink:0"><span class="badge ${NOTICE_BADGE[type]||'badge-default'}">${NOTICE_LABELS[type]||o.type||'Notice'}</span>${tagged?`<span class="badge badge-${tagged}">${TAG_LABELS[tagged]}</span>`:''}</div>
-        </div>
-        <div class="opp-meta">
-          <div><div class="meta-k">Agency</div><div class="meta-v">${esc(agency)}</div></div>
-          <div><div class="meta-k">NAICS</div><div class="meta-v">${o.naicsCode||'—'}</div></div>
-          <div><div class="meta-k">Sol #</div><div class="meta-v">${trunc(o.solicitationNumber||'—',20)}</div></div>
-          <div><div class="meta-k">Posted</div><div class="meta-v">${fmtDate(o.postedDate)}</div></div>
-        </div>
-        <div class="ai-sum" id="sum-${pid}"><div class="ai-sum-label">AI Summary</div><span style="animation:pulse 1s infinite;display:inline-block">●</span> Generating…</div>
-        <div class="opp-bottom">
-          <span class="mono" style="font-size:11px;color:${urgent?'var(--red2)':'var(--mist)'}">${deadline?`⏱ Due: ${fmtDate(deadline)}${urgent?' — URGENT':''}`:(`Archive: `+fmtDate(o.archiveDate))}</span>
-          <div style="display:flex;gap:7px;align-items:center">
-            <select class="tag-sel" data-pid="${pid}" data-meta="${esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url}))}" onchange="tagOppFromSelect(this)">
-              <option value="">+ Pipeline</option>
-              ${Object.entries(TAG_LABELS).map(([vv,l])=>`<option value="${vv}" ${tagged===vv?'selected':''}>${l}</option>`).join('')}
-            </select>
-            <a class="btn btn-ghost btn-xs" href="${url}" target="_blank">View →</a>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  if (pag) {
-    const total=Math.ceil(searchTotal/searchLimit), cur=Math.floor(searchOffset/searchLimit)+1;
-    pag.style.display=total>1?'flex':'none';
-    const pi=document.getElementById('pageInfo'); if(pi)pi.textContent=`Page ${cur} of ${total}`;
-    const prev=document.getElementById('prevBtn'), next=document.getElementById('nextBtn');
-    if(prev)prev.disabled=cur<=1; if(next)next.disabled=cur>=total;
-  }
-  opps.forEach((o,i) => genSummary(o.noticeId||`opp${i}`, o));
-}
-
-async function genSummary(pid, o) {
-  const el = document.getElementById(`sum-${pid}`);
-  if (!el) return;
-  try {
-    const aiText2 = await callAI(`2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:${o.title}\nAgency:${o.fullParentPathName||o.departmentName}\nNAICS:${o.naicsCode}\nType:${NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type}\nDesc:${trunc(o.description||'',300)}`, 120);
-    if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div>${esc(aiText2||'Unavailable')}`;
-  } catch(e) { if(el) el.innerHTML=`<div class="ai-sum-label">AI Summary</div><span class="muted" style="font-size:11px">Unavailable</span>`; }
-}
-
-function tagOppFromSelect(sel) {
-  const pid = sel.dataset.pid;
-  const tag = sel.value;
-  const metaJson = sel.dataset.meta;
-  if (pid && metaJson) tagOpp(pid, tag, metaJson);
-}
-
-async function tagOpp(pid, tag, metaJson) {
-  const meta = JSON.parse(metaJson);
-  if (!tag) { delete S.pipeline[pid]; logActivity(`Removed opportunity from pipeline`,'var(--mist)'); }
-  else {
-    S.pipeline[pid] = { tag, ...meta };
-    logActivity(`Tagged "${trunc(meta.title,40)}" as ${TAG_LABELS[tag]}`, tag==='won'?'var(--green2)':tag==='quoting'?'var(--amber2)':tag==='submitted'?'var(--purple2)':'var(--blue2)');
-    toast(`Added to ${TAG_LABELS[tag]} ✓`);
-  }
-  updateBadges();
-  await save('Pipeline');
-  const card=document.getElementById(`oc-${pid}`);
-  if(card){
-    card.className=card.className.replace(/tagged-\w+/g,'').trim();
-    if(tag)card.classList.add(`tagged-${tag}`);
-    const bw=card.querySelector('[style*="flex-shrink:0"]');
-    if(bw){bw.querySelectorAll('[class*="badge-pursuing"],[class*="badge-watching"],[class*="badge-bidding"],[class*="badge-subbing"],[class*="badge-pass"]').forEach(b=>b.remove());if(tag){const b=document.createElement('span');b.className=`badge badge-${tag}`;b.textContent=TAG_LABELS[tag];bw.appendChild(b);}}
-  }
-}
 
 async function changePage(dir) {
   const newOff=searchOffset+dir*searchLimit;
