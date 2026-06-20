@@ -1040,6 +1040,46 @@ function showSearchErr(msg) {
   if(el)el.innerHTML=`<div style="background:rgba(230,57,70,0.07);border:1px solid rgba(230,57,70,0.2);border-radius:8px;padding:16px 20px;font-family:'DM Mono',monospace;font-size:12px;color:var(--red2);line-height:1.6;white-space:pre-line">${esc(msg)}</div>`;
 }
 
+// ══ PIPELINE TAG FROM SEARCH ══════════════════════════════════════════════════
+
+function tagOppFromSelect(sel) {
+  const pid = sel.dataset.pid;
+  const tag = sel.value;
+  const metaRaw = sel.dataset.meta;
+  if (!pid || !tag || !metaRaw) return;
+  try {
+    const meta = JSON.parse(metaRaw);
+    tagOpp(pid, tag, meta);
+  } catch(e) {
+    toast('Error reading opportunity data', true);
+  }
+}
+
+async function tagOpp(pid, tag, meta) {
+  if (!tag) {
+    delete S.pipeline[pid];
+    logActivity('Removed opportunity from pipeline', 'var(--mist)');
+  } else {
+    const existing = S.pipeline[pid] || {};
+    S.pipeline[pid] = {
+      ...existing,
+      pid,
+      tag,
+      title: meta.title || existing.title || '',
+      agency: meta.agency || existing.agency || '',
+      naics: meta.naics || existing.naics || '',
+      solNum: meta.solNum || existing.solNum || '',
+      deadline: meta.deadline || existing.deadline || '',
+      url: meta.url || existing.url || '',
+      notes: existing.notes || ''
+    };
+    logActivity(`Tagged "${trunc(meta.title||'',40)}" as ${TAG_LABELS[tag]||tag}`, 'var(--green2)');
+    toast(`Added to pipeline: ${TAG_LABELS[tag]||tag} ✓`);
+  }
+  updateBadges();
+  await save('Pipeline');
+}
+
 // ══ PIPELINE ══════════════════════════════════════════════════════════════════
 function renderPipeline(c, ta) {
   if(!c)c=document.getElementById('content');
@@ -3884,7 +3924,6 @@ async function searchUSASpending(pid) {
     if (naicsStr) filters.naics_codes = { require: [naicsStr] };
 
     // Log exact payload
-    console.log('USASpending filters:', JSON.stringify(filters));
 
     // Valid fields per API spec (spending_by_award contracts endpoint)
     const body = {
@@ -3943,8 +3982,6 @@ function renderUSASpendingResults(pid, awards, opp) {
   if (!resultEl) return;
 
   // Log keys to diagnose field name mismatches
-  if (awards.length > 0) console.log('USA keys:', Object.keys(awards[0]), JSON.stringify(awards[0]).slice(0,600));
-
   resultEl.innerHTML = `
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.1em">
       ${awards.length} contracts found (NAICS ${esc(opp.naics||'')}) — AI analyzing relevance…
