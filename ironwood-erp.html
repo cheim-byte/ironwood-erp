@@ -398,7 +398,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.52</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.54</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -880,7 +880,8 @@ function renderSearch(c, ta) {
       <option value="SDVOSB">Service-Disabled Veteran</option>
     </select>
     <select class="filter-sel" id="fState"><option value="">All States</option><option value="PA">Pennsylvania</option><option value="NJ">New Jersey</option><option value="NY">New York</option><option value="VA">Virginia</option><option value="MD">Maryland</option><option value="DC">DC</option><option value="CA">California</option><option value="TX">Texas</option><option value="FL">Florida</option></select>
-    <select class="filter-sel" id="fNotice"><option value="">All Types</option><option value="o">Solicitation</option><option value="p">Pre-Solicitation</option><option value="r">Sources Sought</option><option value="k">Combined Synopsis</option><option value="a">Award Notice</option></select>
+    <select class="filter-sel" id="fMinDays"><option value="7" selected>Min 7 days to bid</option><option value="0">No minimum</option><option value="3">Min 3 days</option><option value="14">Min 14 days</option><option value="30">Min 30 days</option></select>
+    <select class="filter-sel" id="fNotice"><option value="biddable" selected>Biddable Only (Sol + Combined)</option><option value="">All Types</option><option value="o">Solicitation</option><option value="p">Pre-Solicitation</option><option value="r">Sources Sought</option><option value="k">Combined Synopsis</option><option value="a">Award Notice</option></select>
   </div>
   <div id="postFilterBar" style="display:none">
     <div style="margin:14px 0 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--blue2);text-transform:uppercase;letter-spacing:0.1em">Narrow Results (no API call)</div>
@@ -931,7 +932,8 @@ async function doSearch() {
       postedFrom: postedFrom(),
       postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`
     });
-    if (fNotice) params.set('noticeType', fNotice);
+    // 'biddable' is a client-side filter (Sol + Combined), don't send to API
+    if (fNotice && fNotice !== 'biddable') params.set('noticeType', fNotice);
     if (fSetAside) params.set('typeOfSetAside', fSetAside);
     if (fState) params.set('placeOfPerformanceState', fState);
 
@@ -948,6 +950,26 @@ async function doSearch() {
 
     let results = (proxy.data || proxy).opportunitiesData || [];
     searchTotal = (proxy.data || proxy).totalRecords || results.length;
+
+    // Biddable filter — keep only Solicitation and Combined Synopsis/Solicitation
+    if (fNotice === 'biddable') {
+      results = results.filter(o => {
+        const t = (o.type||'').toLowerCase();
+        return t.includes('solicitation') || t.includes('combined');
+      });
+    }
+
+    // Minimum lead time filter — drop opportunities due in < 7 days (not enough time to bid)
+    const minDaysEl = document.getElementById('fMinDays');
+    const minDays = minDaysEl ? parseInt(minDaysEl.value) : 7;
+    if (minDays > 0) {
+      const nowMs = new Date();
+      results = results.filter(o => {
+        if (!o.responseDeadLine) return true; // keep ones with no deadline
+        const days = Math.ceil((new Date(o.responseDeadLine) - nowMs) / 86400000);
+        return days >= minDays;
+      });
+    }
 
     // Sort by deadline soonest, expired pushed to end
     const now = new Date();
@@ -977,7 +999,7 @@ async function doSearch() {
     ['pfKeyword','pfNaics'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['pfNotice','pfDeadline'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
-    toast(`Pulled ${results.length} opportunities ✓`);
+    toast(`Pulled ${results.length} ${fNotice==='biddable'?'biddable ':''}opportunit${results.length===1?'y':'ies'} ✓`);
     renderSearchResults(results, 'federal contract opportunities');
 
   } catch(e) {
