@@ -570,9 +570,20 @@ async function sheetRead(tab) {
 }
 
 async function sheetWrite(tab, rows) {
+  // Use GET with encoded payload — POST triggers CORS preflight that Apps Script blocks
+  const payload = encodeURIComponent(JSON.stringify(rows));
+  const url = `${API_URL}?token=${SECRET}&action=write&tab=${tab}&sheetUrl=${encodeURIComponent(SHEET_URL)}&rows=${payload}`;
+  // URL length guard — Sheets rows can be large
+  if (url.length < 8000) {
+    const res = await fetch(url);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    return true;
+  }
+  // Large payload fallback: POST with text/plain to avoid preflight
   const res = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ token: SECRET, action: 'write', tab, sheetUrl: SHEET_URL, rows })
   });
   const d = await res.json();
