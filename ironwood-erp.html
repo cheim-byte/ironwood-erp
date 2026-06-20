@@ -173,8 +173,8 @@ a:hover{text-decoration:underline}
 .opp-card.tagged-submitted::before{background:var(--purple2)}
 .opp-card.tagged-won::before{background:var(--green2)}
 .opp-card.tagged-loss::before{background:var(--muted)}
-.opp-title{font-size:14px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:8px;flex:1}
-.opp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.opp-title{font-size:14px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:8px;flex:1;word-break:break-word;overflow-wrap:anywhere}
+.opp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;word-break:break-word}
 .meta-k{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
 .meta-v{font-family:'DM Mono',monospace;font-size:11px;color:var(--mist)}
 .ai-sum{background:rgba(196,123,43,0.05);border-left:2px solid var(--amber);padding:8px 12px;border-radius:0 5px 5px 0;font-size:12px;color:var(--mist);line-height:1.5;font-style:italic;margin:8px 0}
@@ -398,7 +398,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.54</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.60</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -593,12 +593,12 @@ async function sheetWrite(tab, rows) {
 
 // Serialize/deserialize each module to/from sheet rows
 function pipelineToRows() {
-  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource','description']];
+  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource','description','aiSummary','aiSummaryDate']];
   Object.entries(S.pipeline).forEach(([pid, p]) => rows.push([
     pid, p.tag||'', p.title||'', p.agency||'', p.naics||'',
     p.solNum||'', p.deadline||'', p.url||'', p.notes||'',
     p.solNum||'', p.finalBid||0, p.prevContractValue||0, p.prevContractSource||'',
-    p.description||''
+    p.description||'', p.aiSummary||'', p.aiSummaryDate||''
   ]));
   return rows;
 }
@@ -610,7 +610,7 @@ function rowsToPipeline(rows) {
       solNum:r[5], deadline:r[6], url:r[7],
       notes:r[8]||'', finalBid:parseFloat(r[10])||0,
       prevContractValue:parseFloat(r[11])||0, prevContractSource:r[12]||'',
-      description:r[13]||''
+      description:r[13]||'', aiSummary:r[14]||'', aiSummaryDate:r[15]||''
     };
   });
   return p;
@@ -891,10 +891,10 @@ function renderSearch(c, ta) {
       <select class="filter-sel" id="pfNotice" onchange="applyPostFilters()"><option value="">Any Type</option></select>
       <select class="filter-sel" id="pfDeadline" onchange="applyPostFilters()">
         <option value="">Any Deadline</option>
-        <option value="7">Due ≤ 7 days</option>
-        <option value="14">Due ≤ 14 days</option>
-        <option value="30">Due ≤ 30 days</option>
-        <option value="60">Due ≤ 60 days</option>
+        <option value="7">Due ≥ 7 days out</option>
+        <option value="14">Due ≥ 14 days out</option>
+        <option value="30">Due ≥ 30 days out</option>
+        <option value="60">Due ≥ 60 days out</option>
         <option value="active">Not yet expired</option>
       </select>
       <button class="btn btn-ghost btn-sm" onclick="clearPostFilters()">Clear</button>
@@ -907,6 +907,16 @@ function renderSearch(c, ta) {
     <span class="mono muted" id="pageInfo"></span>
     <button class="btn btn-ghost btn-sm" id="nextBtn" onclick="changePage(1)">Next →</button>
   </div>`;
+  // Restore previous pull if results exist
+  if (window._allOpps && window._allOpps.length) {
+    const pfBar = document.getElementById('postFilterBar');
+    if (pfBar) pfBar.style.display = 'block';
+    // Repopulate post-filter notice dropdown
+    const noticeTypes = [...new Set(window._allOpps.map(o => o.type).filter(Boolean))].sort();
+    const pfNotice = document.getElementById('pfNotice');
+    if (pfNotice) pfNotice.innerHTML = '<option value="">Any Type</option>' + noticeTypes.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    setTimeout(() => applyPostFilters(), 50);
+  }
 }
 
 async function doSearch() {
@@ -955,6 +965,8 @@ async function doSearch() {
     if (fNotice === 'biddable') {
       results = results.filter(o => {
         const t = (o.type||'').toLowerCase();
+        // Exclude pre-solicitation explicitly (it contains "solicitation")
+        if (t.includes('presolicitation') || t.includes('pre-solicitation') || t.includes('pre solicitation')) return false;
         return t.includes('solicitation') || t.includes('combined');
       });
     }
@@ -1032,7 +1044,7 @@ function applyPostFilters() {
     }
     // Notice type
     if (notice && o.type !== notice) return false;
-    // Deadline range
+    // Deadline range — show opportunities due AT LEAST X days out (more lead time)
     if (deadlineFilter) {
       const dl = o.responseDeadLine ? new Date(o.responseDeadLine) : null;
       if (!dl) return false;
@@ -1040,8 +1052,8 @@ function applyPostFilters() {
       if (deadlineFilter === 'active') {
         if (days < 0) return false;
       } else {
-        const max = parseInt(deadlineFilter);
-        if (days < 0 || days > max) return false;
+        const min = parseInt(deadlineFilter);
+        if (days < min) return false;
       }
     }
     return true;
@@ -1099,7 +1111,7 @@ function renderSearchResults(results, explanation) {
     const pocEmail = poc.email || '';
     const awardAmt = o.award?.amount ? parseFloat(o.award.amount) : 0;
     const awardee = o.award?.awardee?.name || '';
-    const descPreview = o.description && !o.description.startsWith('http') ? trunc(o.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(), 180) : '';
+    const descPreview = o.description && !o.description.startsWith('http') ? trunc(o.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(), 600) : '';
 
     // Build detail chips
     const chips = [];
@@ -1116,7 +1128,7 @@ function renderSearchResults(results, explanation) {
       +'<div style="flex:1;min-width:0">'
       +'<div class="opp-title">'+esc(o.title||'Untitled')+'</div>'
       +'<div class="opp-meta">'
-      +'<span class="meta-agency">'+esc(trunc(o.fullParentPathName||o.departmentName||'',55))+'</span>'
+      +'<span class="meta-agency">'+esc(o.fullParentPathName||o.departmentName||'')+'</span>'
       +(noticeType?'<span class="meta-naics">'+esc(noticeType)+'</span>':'')
       +'<span class="meta-posted">Posted '+fmtDate(o.postedDate)+'</span>'
       +'</div></div>'
@@ -1132,7 +1144,6 @@ function renderSearchResults(results, explanation) {
       +(descPreview?'<div style="font-size:12px;color:var(--mist);line-height:1.5;margin:6px 0;padding:8px 10px;background:var(--bg2);border-radius:6px;border-left:2px solid var(--border)">'+esc(descPreview)+'</div>':'')
       // Contact
       +((pocName||pocEmail)?'<div class="mono muted" style="font-size:10px;margin:4px 0">👤 '+esc(pocName||'Contact')+(pocEmail?' · <a href="mailto:'+esc(pocEmail)+'" style="color:var(--blue2)">'+esc(pocEmail)+'</a>':'')+'</div>':'')
-      +'<div id="sum-'+pid+'" class="ai-summary-box"><span class="ai-sum-label">Loading summary…</span></div>'
       +'<div class="opp-card-footer">'
       +(inPipe?'<span class="mono muted" style="font-size:11px">✓ In pipeline: '+(TAG_LABELS[inPipe.tag]||inPipe.tag)+'</span>'
         :'<select class="tag-sel" data-pid="'+pid+'" data-meta="'+esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url:o.uiLink||'https://sam.gov',description:trunc(o.description||'',1000)}))+'" onchange="tagOppFromSelect(this)">'
@@ -1143,20 +1154,25 @@ function renderSearchResults(results, explanation) {
       +'</div></div>';
   }).join('');
   if (pag) pag.style.display = 'none';
-  results.forEach(o => {
-    const pid = o.noticeId || o.solicitationNumber || btoa(o.title||'').slice(0,12);
-    genSummary(o, pid);
-  });
 }
 
-async function genSummary(o, pid) {
-  const el = document.getElementById('sum-'+pid);
-  if (!el) return;
+async function genOppInfoSummary(pid) {
+  const p = S.pipeline[pid];
+  const el = document.getElementById('oppAiSummary');
+  if (!p || !el) return;
+  el.innerHTML = '<span style="color:var(--muted)">● Analyzing opportunity…</span>';
   try {
-    const aiText2 = await callAI('2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:'+o.title+'\nAgency:'+(o.fullParentPathName||o.departmentName)+'\nNAICS:'+o.naicsCode+'\nType:'+(NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type)+'\nDesc:'+trunc(o.description||'',300), 120);
-    if(el) el.innerHTML='<div class="ai-sum-label">AI Summary</div>'+esc(aiText2||'Unavailable');
+    const descText = p.description && !p.description.startsWith('http') ? trunc(p.description.replace(/<[^>]*>/g,''), 500) : '';
+    const aiText = await callAI('3-4 sentences. Assess this federal contract for a small business prime that manages subcontractors. Cover: is it a good fit, what work would be subbed out, and any risks or things to watch. Direct, no labels or headers.\nTitle:'+p.title+'\nAgency:'+p.agency+'\nNAICS:'+p.naics+'\nDeadline:'+fmtDate(p.deadline)+'\nDesc:'+descText, 250);
+    const summary = aiText || 'Assessment unavailable';
+    el.innerHTML = esc(summary) + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:8px">Generated ' + new Date().toLocaleDateString() + ' · <a onclick="genOppInfoSummary(\''+pid+'\')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>';
+    el.style.fontStyle = 'normal';
+    // Persist to pipeline
+    S.pipeline[pid].aiSummary = summary;
+    S.pipeline[pid].aiSummaryDate = new Date().toISOString();
+    await save('Pipeline');
   } catch(e) {
-    if(el) el.innerHTML='<div class="ai-sum-label">AI Summary</div>Summary unavailable';
+    el.innerHTML = '<span style="color:var(--red2)">Assessment unavailable — '+esc(e.message)+'</span>';
   }
 }
 
@@ -1441,6 +1457,18 @@ function renderOppInfoTab(pid) {
         ${p.naics?`<div class="kpi kpi-amber" style="flex:1;min-width:140px;padding:12px 16px"><div class="kpi-label">NAICS</div><div class="kpi-value" style="font-size:18px">${p.naics}</div></div>`:''}
         ${p.finalBid?`<div class="kpi kpi-purple" style="flex:1;min-width:140px;padding:12px 16px"><div class="kpi-label">Final Bid</div><div class="kpi-value" style="font-size:18px">$${fmt(p.finalBid)}</div></div>`:''}
       </div>` : ''}
+
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green2);text-transform:uppercase;letter-spacing:0.1em">AI Fit Assessment</div>
+          ${!p.aiSummary?`<button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">Generate ✦</button>`:''}
+        </div>
+        <div id="oppAiSummary" style="background:rgba(82,183,136,0.05);border:1px solid rgba(82,183,136,0.15);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--mist);line-height:1.6;${p.aiSummary?'':'font-style:italic'}">
+          ${p.aiSummary
+            ? esc(p.aiSummary) + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:8px">Generated ' + (p.aiSummaryDate?new Date(p.aiSummaryDate).toLocaleDateString():'') + ' · <a onclick="genOppInfoSummary(\''+pid+'\')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>'
+            : '<span style="color:var(--muted)">Click "Generate" to get an AI assessment of whether this opportunity is a good fit and how to approach it.</span>'}
+        </div>
+      </div>
 
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Opportunity Details</div>
