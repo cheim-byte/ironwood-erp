@@ -398,7 +398,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.45</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.47</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -593,11 +593,12 @@ async function sheetWrite(tab, rows) {
 
 // Serialize/deserialize each module to/from sheet rows
 function pipelineToRows() {
-  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource']];
+  const rows = [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource','description']];
   Object.entries(S.pipeline).forEach(([pid, p]) => rows.push([
     pid, p.tag||'', p.title||'', p.agency||'', p.naics||'',
     p.solNum||'', p.deadline||'', p.url||'', p.notes||'',
-    p.solNum||'', p.finalBid||0, p.prevContractValue||0, p.prevContractSource||''
+    p.solNum||'', p.finalBid||0, p.prevContractValue||0, p.prevContractSource||'',
+    p.description||''
   ]));
   return rows;
 }
@@ -608,7 +609,8 @@ function rowsToPipeline(rows) {
       tag:r[1], title:r[2], agency:r[3], naics:r[4],
       solNum:r[5], deadline:r[6], url:r[7],
       notes:r[8]||'', finalBid:parseFloat(r[10])||0,
-      prevContractValue:parseFloat(r[11])||0, prevContractSource:r[12]||''
+      prevContractValue:parseFloat(r[11])||0, prevContractSource:r[12]||'',
+      description:r[13]||''
     };
   });
   return p;
@@ -1019,7 +1021,7 @@ function renderSearchResults(results, explanation) {
       +'<div id="sum-'+pid+'" class="ai-summary-box"><span class="ai-sum-label">Loading summary…</span></div>'
       +'<div class="opp-card-footer">'
       +(inPipe?'<span class="mono muted" style="font-size:11px">✓ In pipeline: '+(TAG_LABELS[inPipe.tag]||inPipe.tag)+'</span>'
-        :'<select class="tag-sel" data-pid="'+pid+'" data-meta="'+esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url:o.uiLink||'https://sam.gov'}))+'" onchange="tagOppFromSelect(this)">'
+        :'<select class="tag-sel" data-pid="'+pid+'" data-meta="'+esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url:o.uiLink||'https://sam.gov',description:trunc(o.description||'',1000)}))+'" onchange="tagOppFromSelect(this)">'
         +'<option value="">+ Pipeline</option>'
         +Object.entries(TAG_LABELS).map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')
         +'</select>')
@@ -1085,6 +1087,7 @@ async function tagOpp(pid, tag, meta) {
       solNum: meta.solNum || existing.solNum || '',
       deadline: meta.deadline || existing.deadline || '',
       url: meta.url || existing.url || '',
+      description: meta.description || existing.description || '',
       notes: existing.notes || ''
     };
     logActivity(`Tagged "${trunc(meta.title||'',40)}" as ${TAG_LABELS[tag]||tag}`, 'var(--green2)');
@@ -1141,6 +1144,7 @@ function pipeCard(pid, p) {
       </select>
       <div style="display:flex;gap:4px">
         <button class="btn btn-ghost btn-xs" onclick="openOppDetail('${pid}')">Detail</button>
+        <button class="btn btn-ghost btn-xs" onclick="refreshOpp('${pid}')" title="Refresh data from SAM.gov">↻</button>
         ${p.url?`<a class="btn btn-ghost btn-xs" href="${p.url}" target="_blank">SAM</a>`:''}
         <button class="rm-btn" onclick="removePipe('${pid}')">✕</button>
       </div>
@@ -1155,6 +1159,71 @@ async function dropCard(e, newTag) {
 }
 async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();toast(`Moved to ${TAG_LABELS[tag]} ✓`);}}
 async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');renderPipeline();}
+
+async function refreshOpp(pid) {
+  const p = S.pipeline[pid];
+  if (!p) return;
+  const solNum = p.solNum || '';
+  if (!solNum) {
+    toast('No solicitation number on this opportunity — cannot refresh', true);
+    return;
+  }
+  if (!confirm(`Refresh "${trunc(p.title||'this opportunity',40)}" from SAM.gov?\n\nThis uses 1 of your 10 daily API calls. Your notes, quotes, and bid data will NOT be changed.`)) return;
+
+  const samKey = localStorage.getItem(SAM_KEY_STORE) || S.settings.samKey || '';
+  if (!samKey) { toast('Add your SAM.gov API key in Settings first', true); return; }
+
+  toast('Refreshing from SAM.gov…');
+  try {
+    // Search SAM.gov by solicitation number
+    const params = new URLSearchParams({
+      token: SECRET, action: 'samgov', sheetUrl: SHEET_URL,
+      samKey, limit: 10, offset: 0,
+      postedFrom: postedFrom(),
+      postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`,
+      q: solNum
+    });
+    const res = await fetch(`${API_URL}?${params}`);
+    if (!res.ok) throw new Error(`Proxy ${res.status}`);
+    const proxy = await res.json();
+    if (proxy.error) {
+      if (proxy.error.includes('429') || proxy.error.includes('quota')) {
+        throw new Error('Daily SAM.gov quota reached — try again tomorrow');
+      }
+      throw new Error(proxy.error);
+    }
+    const results = (proxy.data || proxy).opportunitiesData || [];
+    // Match by solicitation number
+    const match = results.find(o => (o.solicitationNumber||'') === solNum) || results[0];
+    if (!match) {
+      toast('Opportunity not found on SAM.gov — it may have been archived', true);
+      return;
+    }
+    // Update SAM.gov fields, preserve user work
+    const newDeadline = match.responseDeadLine ? match.responseDeadLine.split('T')[0] : p.deadline;
+    S.pipeline[pid] = {
+      ...p,
+      // Updated from SAM.gov:
+      title: match.title || p.title,
+      agency: trunc(match.fullParentPathName||match.departmentName||'', 50) || p.agency,
+      naics: match.naicsCode || p.naics,
+      deadline: newDeadline,
+      url: match.uiLink || p.url,
+      description: trunc(match.description||'', 1000) || p.description,
+      // Preserved (untouched): notes, finalBid, prevContractValue, prevContractSource, solNum, tag
+    };
+    logActivity(`Refreshed "${trunc(match.title||'',30)}" from SAM.gov`, 'var(--blue2)');
+    await save('Pipeline');
+    renderPipeline();
+    const deadlineChanged = newDeadline !== p.deadline;
+    toast(`Refreshed ✓${deadlineChanged ? ' — deadline updated!' : ''}`);
+  } catch(e) {
+    if (e.message.includes('quota') || e.message.includes('429')) {
+      localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
+    }
+    toast(`Refresh failed: ${e.message}`, true);
+  }
+}
 
 
 // ══ OPP DETAIL & SUB ASSIGNMENTS ═════════════════════════════════════════════
@@ -1617,6 +1686,10 @@ function renderNotesTab(p) {
   const pid = Object.keys(S.pipeline).find(k=>S.pipeline[k]===p)||'';
   const hasContract = S.contracts.some(c=>c.oppId===pid);
   return `
+    ${p.description ? `<div class="form-group">
+      <label class="form-label">Opportunity Description <span style="color:var(--muted);font-weight:400">(from SAM.gov)</span></label>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--mist);line-height:1.6;max-height:200px;overflow-y:auto;white-space:pre-wrap">${esc(p.description)}</div>
+    </div>` : ''}
     <div class="form-group">
       <label class="form-label">Opportunity Notes</label>
       <textarea class="form-textarea" id="oppNotes" style="min-height:120px" placeholder="Strategy notes, CO conversations, bid approach…">${esc(p.notes||'')}</textarea>
