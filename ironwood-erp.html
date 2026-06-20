@@ -398,7 +398,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.60</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.62</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -907,6 +907,16 @@ function renderSearch(c, ta) {
     <span class="mono muted" id="pageInfo"></span>
     <button class="btn btn-ghost btn-sm" id="nextBtn" onclick="changePage(1)">Next →</button>
   </div>`;
+  // Restore from localStorage cache if memory is empty (e.g. after refresh)
+  if ((!window._allOpps || !window._allOpps.length)) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('iw_last_pull') || 'null');
+      if (cached && cached.opps && cached.opps.length) {
+        window._allOpps = cached.opps;
+        window._lastPullAt = cached.at;
+      }
+    } catch(e) { /* no cache */ }
+  }
   // Restore previous pull if results exist
   if (window._allOpps && window._allOpps.length) {
     const pfBar = document.getElementById('postFilterBar');
@@ -915,8 +925,27 @@ function renderSearch(c, ta) {
     const noticeTypes = [...new Set(window._allOpps.map(o => o.type).filter(Boolean))].sort();
     const pfNotice = document.getElementById('pfNotice');
     if (pfNotice) pfNotice.innerHTML = '<option value="">Any Type</option>' + noticeTypes.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    // Show cached pull banner
+    if (window._lastPullAt) {
+      const ageMin = Math.round((new Date() - new Date(window._lastPullAt)) / 60000);
+      const ageLabel = ageMin < 1 ? 'just now' : ageMin < 60 ? ageMin+' min ago' : Math.round(ageMin/60)+' hr ago';
+      const sr = document.getElementById('searchResults');
+      if (sr) {
+        const banner = document.createElement('div');
+        banner.innerHTML = `<div style="padding:8px 14px;background:rgba(69,123,157,0.08);border:1px solid rgba(69,123,157,0.2);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--blue2);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📦 Showing cached pull from ${ageLabel} (${window._allOpps.length} opps) — no API call used</span><button class="btn btn-ghost btn-xs" onclick="clearPullCache()">Clear cache</button></div>`;
+        sr.parentNode.insertBefore(banner.firstChild, sr);
+      }
+    }
     setTimeout(() => applyPostFilters(), 50);
   }
+}
+
+function clearPullCache() {
+  localStorage.removeItem('iw_last_pull');
+  window._allOpps = [];
+  window._lastPullAt = null;
+  nav('search');
+  toast('Pull cache cleared');
 }
 
 async function doSearch() {
@@ -995,6 +1024,11 @@ async function doSearch() {
 
     // Store the full pulled set for client-side filtering
     window._allOpps = results;
+    window._lastPullAt = null;
+    // Cache to localStorage so results survive a page refresh
+    try {
+      localStorage.setItem('iw_last_pull', JSON.stringify({ at: new Date().toISOString(), opps: results }));
+    } catch(e) { /* localStorage full — skip cache */ }
 
     // Populate the post-filter notice type dropdown with what's actually present
     const noticeTypes = [...new Set(results.map(o => o.type).filter(Boolean))].sort();
@@ -1146,10 +1180,7 @@ function renderSearchResults(results, explanation) {
       +((pocName||pocEmail)?'<div class="mono muted" style="font-size:10px;margin:4px 0">👤 '+esc(pocName||'Contact')+(pocEmail?' · <a href="mailto:'+esc(pocEmail)+'" style="color:var(--blue2)">'+esc(pocEmail)+'</a>':'')+'</div>':'')
       +'<div class="opp-card-footer">'
       +(inPipe?'<span class="mono muted" style="font-size:11px">✓ In pipeline: '+(TAG_LABELS[inPipe.tag]||inPipe.tag)+'</span>'
-        :'<select class="tag-sel" data-pid="'+pid+'" data-meta="'+esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url:o.uiLink||'https://sam.gov',description:trunc(o.description||'',1000)}))+'" onchange="tagOppFromSelect(this)">'
-        +'<option value="">+ Pipeline</option>'
-        +Object.entries(TAG_LABELS).map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')
-        +'</select>')
+        :'<button class="btn btn-primary btn-sm" data-pid="'+pid+'" data-meta="'+esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url:o.uiLink||'https://sam.gov',description:trunc(o.description||'',1000)}))+'" onclick="addToWatching(this)">+ Add to Watching</button>')
       +(o.uiLink?'<a class="btn btn-ghost btn-sm" href="'+esc(o.uiLink)+'" target="_blank">View on SAM →</a>':'')
       +'</div></div>';
   }).join('');
@@ -1187,6 +1218,19 @@ function showSearchErr(msg) {
 }
 
 // ══ PIPELINE TAG FROM SEARCH ══════════════════════════════════════════════════
+
+function addToWatching(btn) {
+  const pid = btn.dataset.pid;
+  const metaRaw = btn.dataset.meta;
+  if (!pid || !metaRaw) return;
+  try {
+    const meta = JSON.parse(metaRaw);
+    tagOpp(pid, 'watching', meta);
+    btn.outerHTML = '<span class="mono muted" style="font-size:11px">✓ In pipeline: Watching</span>';
+  } catch(e) {
+    toast('Error adding to pipeline', true);
+  }
+}
 
 function tagOppFromSelect(sel) {
   const pid = sel.dataset.pid;
