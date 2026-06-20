@@ -398,7 +398,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.49</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.52</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -1056,24 +1056,60 @@ function renderSearchResults(results, explanation) {
   el.innerHTML = results.map(o => {
     const pid = o.noticeId || o.solicitationNumber || btoa(o.title||'').slice(0,12);
     const deadline = o.responseDeadLine ? o.responseDeadLine.split('T')[0] : '';
+    const deadlineTime = o.responseDeadLine && o.responseDeadLine.includes('T') ? o.responseDeadLine.split('T')[1].slice(0,5) : '';
     const inPipe = S.pipeline[pid];
     const daysLeft = deadline ? Math.ceil((new Date(deadline)-new Date())/86400000) : null;
     const urgent = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0;
     const expired = daysLeft !== null && daysLeft < 0;
+
+    // Extract all available fields
+    const setAside = o.typeOfSetAsideDescription || o.typeOfSetAside || '';
+    const noticeType = NOTICE_LABELS[(o.type||'').toLowerCase()] || o.type || '';
+    const pop = o.placeOfPerformance || {};
+    const popCity = pop.city?.name || '';
+    const popState = pop.state?.code || pop.state?.name || '';
+    const popLocation = [popCity, popState].filter(Boolean).join(', ');
+    const psc = o.classificationCode || '';
+    const naicsDesc = o.naicsDescription || '';
+    const office = o.officeAddress?.city ? `${o.officeAddress.city}, ${o.officeAddress.state||''}` : '';
+    const poc = (o.pointOfContact && o.pointOfContact[0]) || {};
+    const pocName = poc.fullName || poc.name || '';
+    const pocEmail = poc.email || '';
+    const awardAmt = o.award?.amount ? parseFloat(o.award.amount) : 0;
+    const awardee = o.award?.awardee?.name || '';
+    const descPreview = o.description && !o.description.startsWith('http') ? trunc(o.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(), 180) : '';
+
+    // Build detail chips
+    const chips = [];
+    if (o.naicsCode) chips.push(['NAICS', o.naicsCode + (naicsDesc?' · '+trunc(naicsDesc,28):'')]);
+    if (psc) chips.push(['PSC', psc]);
+    if (setAside) chips.push(['Set-Aside', trunc(setAside,30)]);
+    if (popLocation) chips.push(['Place of Perf.', popLocation]);
+    if (o.solicitationNumber) chips.push(['Sol #', o.solicitationNumber]);
+    if (awardAmt > 0) chips.push(['Award', '$'+fmt(awardAmt)]);
+    if (awardee) chips.push(['Awardee', trunc(awardee,28)]);
+
     return '<div class="opp-card">'
       +'<div class="opp-card-header">'
-      +'<div style="flex:1">'
+      +'<div style="flex:1;min-width:0">'
       +'<div class="opp-title">'+esc(o.title||'Untitled')+'</div>'
       +'<div class="opp-meta">'
-      +'<span class="meta-agency">'+esc(trunc(o.fullParentPathName||o.departmentName||'',45))+'</span>'
-      +(o.naicsCode?'<span class="meta-naics">NAICS '+o.naicsCode+'</span>':'')
-      +(o.solicitationNumber?'<span class="meta-sol">SOL # '+esc(o.solicitationNumber)+'</span>':'')
+      +'<span class="meta-agency">'+esc(trunc(o.fullParentPathName||o.departmentName||'',55))+'</span>'
+      +(noticeType?'<span class="meta-naics">'+esc(noticeType)+'</span>':'')
       +'<span class="meta-posted">Posted '+fmtDate(o.postedDate)+'</span>'
       +'</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
       +(deadline?'<span class="deadline-badge '+(urgent?'deadline-urgent':expired?'deadline-expired':'')+'">'+(expired?'Expired ':urgent?'Due soon: ':'Due: ')+fmtDate(deadline)+(daysLeft!==null&&!expired?' ('+daysLeft+'d)':'')+'</span>':'')
-      +(o.type?'<span class="notice-badge">'+esc(o.typeOfSetAsideDescription||o.type||'')+'</span>':'')
+      +(deadlineTime&&!expired?'<span class="mono muted" style="font-size:10px">by '+deadlineTime+' local</span>':'')
       +'</div></div>'
+      // Detail chip grid
+      +(chips.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px">'
+        +chips.map(([k,v])=>'<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:\'DM Mono\',monospace;font-size:10px"><span style="color:var(--muted)">'+esc(k)+'</span><span style="color:var(--cream)">'+esc(v)+'</span></span>').join('')
+        +'</div>':'')
+      // Description preview
+      +(descPreview?'<div style="font-size:12px;color:var(--mist);line-height:1.5;margin:6px 0;padding:8px 10px;background:var(--bg2);border-radius:6px;border-left:2px solid var(--border)">'+esc(descPreview)+'</div>':'')
+      // Contact
+      +((pocName||pocEmail)?'<div class="mono muted" style="font-size:10px;margin:4px 0">👤 '+esc(pocName||'Contact')+(pocEmail?' · <a href="mailto:'+esc(pocEmail)+'" style="color:var(--blue2)">'+esc(pocEmail)+'</a>':'')+'</div>':'')
       +'<div id="sum-'+pid+'" class="ai-summary-box"><span class="ai-sum-label">Loading summary…</span></div>'
       +'<div class="opp-card-footer">'
       +(inPipe?'<span class="mono muted" style="font-size:11px">✓ In pipeline: '+(TAG_LABELS[inPipe.tag]||inPipe.tag)+'</span>'
@@ -1081,7 +1117,7 @@ function renderSearchResults(results, explanation) {
         +'<option value="">+ Pipeline</option>'
         +Object.entries(TAG_LABELS).map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')
         +'</select>')
-      +(o.uiLink?'<a class="btn btn-ghost btn-sm" href="'+esc(o.uiLink)+'" target="_blank">View →</a>':'')
+      +(o.uiLink?'<a class="btn btn-ghost btn-sm" href="'+esc(o.uiLink)+'" target="_blank">View on SAM →</a>':'')
       +'</div></div>';
   }).join('');
   if (pag) pag.style.display = 'none';
@@ -1178,16 +1214,27 @@ function renderPipeline(c, ta) {
 }
 
 function pipeCard(pid, p) {
-  const dl=p.deadline?`<div class="pipe-meta">Due <span style="color:${isUrgent(p.deadline)?'var(--red2)':'var(--cream)'}">${fmtDate(p.deadline)}</span></div>`:'';
   const quotes = S.subAssignments.filter(a=>a.oppId===pid);
   const awarded = quotes.find(q=>q.status==='awarded');
   const quoteCount = quotes.length;
   const finalBid = parseFloat(p.finalBid||0);
+  const daysLeft = p.deadline ? Math.ceil((new Date(p.deadline)-new Date())/86400000) : null;
+  const urgent = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0;
+  const expired = daysLeft !== null && daysLeft < 0;
+  const descPreview = p.description && !p.description.startsWith('http')
+    ? trunc(p.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(), 120) : '';
+  const dl = p.deadline
+    ? `<div class="pipe-meta" style="margin-top:3px">📅 <span style="color:${urgent?'var(--red2)':expired?'var(--muted)':'var(--cream)'}">${expired?'Expired ':'Due '}${fmtDate(p.deadline)}${daysLeft!==null&&!expired?` (${daysLeft}d)`:''}</span></div>`
+    : '';
   return `<div class="pipe-card" draggable="true" ondragstart="dragPid='${pid}';event.dataTransfer.setData('text/plain','${pid}')">
-    <div class="pipe-title">${esc(trunc(p.title||'',65))}</div>
-    <div class="pipe-meta">${esc(trunc(p.agency||'',40))}</div>
-    ${p.naics?`<div class="pipe-meta">NAICS <span style="color:var(--cream)">${p.naics}</span></div>`:''}
+    <div class="pipe-title">${esc(trunc(p.title||'',70))}</div>
+    <div class="pipe-meta">${esc(trunc(p.agency||'',45))}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin:5px 0">
+      ${p.naics?`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:9px;color:var(--cream)">NAICS ${p.naics}</span>`:''}
+      ${p.solNum?`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:9px;color:var(--mist)">${esc(trunc(p.solNum,18))}</span>`:''}
+    </div>
     ${dl}
+    ${descPreview?`<div style="font-size:11px;color:var(--mist);line-height:1.4;margin:6px 0;padding:6px 8px;background:var(--bg2);border-radius:5px;border-left:2px solid var(--border)">${esc(descPreview)}</div>`:''}
     ${awarded
       ? `<div class="pipe-meta" style="margin-top:4px">✓ <span style="color:var(--green2)">${esc(awarded.subName)}</span> · <span style="color:var(--amber2)">$${fmt(awarded.quotedAmount)}</span></div>`
       : quoteCount>0
@@ -1285,7 +1332,7 @@ async function refreshOpp(pid) {
 // ══ OPP DETAIL & SUB ASSIGNMENTS ═════════════════════════════════════════════
 // ══ OPP DETAIL & SUB QUOTING ═════════════════════════════════════════════════
 
-function openOppDetail(pid, tab='quotes') {
+function openOppDetail(pid, tab='info') {
   const p = S.pipeline[pid];
   if (!p) return;
   const existing = document.getElementById('oppDetailOverlay');
@@ -1307,6 +1354,7 @@ function openOppDetail(pid, tab='quotes') {
         </div>
       </div>
       <div class="opp-tabs">
+        <button class="opp-tab ${tab==='info'?'active':''}" onclick="oppTab('${pid}','info',this)">Opportunity Info</button>
         <button class="opp-tab ${tab==='quotes'?'active':''}" onclick="oppTab('${pid}','quotes',this)">Sub Quotes</button>
         <button class="opp-tab ${tab==='bid'?'active':''}" onclick="oppTab('${pid}','bid',this)">Bid Builder</button>
         <button class="opp-tab ${tab==='notes'?'active':''}" onclick="oppTab('${pid}','notes',this)">Notes</button>
@@ -1326,9 +1374,82 @@ function oppTab(pid, tab, btn) {
 }
 
 function renderOppTab(pid, tab) {
+  if (tab==='info') return renderOppInfoTab(pid);
   if (tab==='quotes') return renderQuotesTab(pid);
   if (tab==='bid') return renderBidTab(pid);
   return renderNotesTab(S.pipeline[pid]);
+}
+
+function renderOppInfoTab(pid) {
+  const p = S.pipeline[pid];
+  if (!p) return '<div class="empty-state">No data</div>';
+  const daysLeft = p.deadline ? Math.ceil((new Date(p.deadline)-new Date())/86400000) : null;
+  const expired = daysLeft !== null && daysLeft < 0;
+  const urgent = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0;
+
+  const rows = [
+    ['Title', p.title || '—'],
+    ['Agency', p.agency || '—'],
+    ['NAICS Code', p.naics || '—'],
+    ['Solicitation #', p.solNum || '—'],
+    ['Response Deadline', p.deadline ? fmtDate(p.deadline) + (daysLeft!==null ? (expired?' (Expired)':` (${daysLeft} days left)`) : '') : '—'],
+    ['Pipeline Stage', TAG_LABELS[p.tag] || p.tag || '—'],
+  ];
+
+  // Bid-related stored data
+  const bidRows = [];
+  if (p.finalBid) bidRows.push(['Final Bid', '$'+fmt(p.finalBid)]);
+  if (p.prevContractValue) bidRows.push(['Prev. Contract Value', '$'+fmt(p.prevContractValue)]);
+  if (p.prevContractSource) bidRows.push(['Prev. Contract Source', p.prevContractSource]);
+
+  const isDescUrl = p.description && p.description.startsWith('http');
+  const descText = p.description && !isDescUrl ? p.description.replace(/<[^>]*>/g,'').replace(/\n{3,}/g,'\n\n').trim() : '';
+
+  // Trigger async fetch if description is a URL
+  if (isDescUrl) setTimeout(() => fetchOppDescription(pid, p.description), 100);
+
+  return `
+    <div style="display:flex;flex-direction:column;gap:16px">
+      ${p.deadline ? `<div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="kpi ${urgent?'kpi-red':expired?'kpi-blue':'kpi-green'}" style="flex:1;min-width:140px;padding:12px 16px">
+          <div class="kpi-label">Deadline</div>
+          <div class="kpi-value" style="font-size:18px">${fmtDate(p.deadline)}</div>
+          <div class="kpi-sub">${expired?'Expired':daysLeft+' days remaining'}</div>
+        </div>
+        ${p.naics?`<div class="kpi kpi-amber" style="flex:1;min-width:140px;padding:12px 16px"><div class="kpi-label">NAICS</div><div class="kpi-value" style="font-size:18px">${p.naics}</div></div>`:''}
+        ${p.finalBid?`<div class="kpi kpi-purple" style="flex:1;min-width:140px;padding:12px 16px"><div class="kpi-label">Final Bid</div><div class="kpi-value" style="font-size:18px">$${fmt(p.finalBid)}</div></div>`:''}
+      </div>` : ''}
+
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Opportunity Details</div>
+        <table style="width:100%;border-collapse:collapse">
+          ${rows.map(([k,v],i)=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 12px 9px 0;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;vertical-align:top;width:160px">${esc(k)}</td>
+            <td style="padding:9px 0;font-size:13px;color:var(--cream)">${esc(v)}</td>
+          </tr>`).join('')}
+        </table>
+      </div>
+
+      ${bidRows.length?`<div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--blue2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Bid Data</div>
+        <table style="width:100%;border-collapse:collapse">
+          ${bidRows.map(([k,v])=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 12px 9px 0;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;width:160px">${esc(k)}</td>
+            <td style="padding:9px 0;font-size:13px;color:var(--cream)">${esc(v)}</td>
+          </tr>`).join('')}
+        </table>
+      </div>`:''}
+
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Full Description</div>
+        <div id="oppDescBox" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:13px;color:var(--mist);line-height:1.7;max-height:340px;overflow-y:auto;white-space:pre-wrap">${isDescUrl ? '<span style="color:var(--muted);font-style:italic">Loading description from SAM.gov…</span>' : (descText ? esc(descText) : '<span style="color:var(--muted);font-style:italic">No description stored. Click ↻ on the pipeline card to pull from SAM.gov.</span>')}</div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${p.url?`<a class="btn btn-primary btn-sm" href="${esc(p.url)}" target="_blank">View Full Notice on SAM.gov →</a>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('oppDetailOverlay')?.remove();refreshOpp('${pid}')">↻ Refresh from SAM.gov</button>
+      </div>
+    </div>`;
 }
 
 // ── SUB QUOTES TAB ────────────────────────────────────────────────────────────
