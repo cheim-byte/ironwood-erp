@@ -969,8 +969,65 @@ async function doSearch(offsetOverride) {
 async function changePage(dir) {
   const newOff=searchOffset+dir*searchLimit;
   if(newOff<0||newOff>=searchTotal)return;
-  showSearchSpinner('Loading…');
-  await fetchSAM({keywords:lastKeywords},newOff);
+  doSearch(newOff);
+}
+
+function renderSearchResults(results, explanation) {
+  const el = document.getElementById('searchResults');
+  const pag = document.getElementById('searchPag');
+  if (!el) return;
+  if (!results || results.length === 0) {
+    el.innerHTML = '<div class="empty-state"><span class="empty-icon">🔍</span><div class="empty-title">No Results</div><div class="empty-sub">Try different filters or a broader keyword.</div></div>';
+    if (pag) pag.style.display = 'none';
+    return;
+  }
+  el.innerHTML = results.map(o => {
+    const pid = o.noticeId || o.solicitationNumber || btoa(o.title||'').slice(0,12);
+    const deadline = o.responseDeadLine ? o.responseDeadLine.split('T')[0] : '';
+    const inPipe = S.pipeline[pid];
+    const daysLeft = deadline ? Math.ceil((new Date(deadline)-new Date())/86400000) : null;
+    const urgent = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0;
+    const expired = daysLeft !== null && daysLeft < 0;
+    return '<div class="opp-card">'
+      +'<div class="opp-card-header">'
+      +'<div style="flex:1">'
+      +'<div class="opp-title">'+esc(o.title||'Untitled')+'</div>'
+      +'<div class="opp-meta">'
+      +'<span class="meta-agency">'+esc(trunc(o.fullParentPathName||o.departmentName||'',45))+'</span>'
+      +(o.naicsCode?'<span class="meta-naics">NAICS '+o.naicsCode+'</span>':'')
+      +(o.solicitationNumber?'<span class="meta-sol">SOL # '+esc(o.solicitationNumber)+'</span>':'')
+      +'<span class="meta-posted">Posted '+fmtDate(o.postedDate)+'</span>'
+      +'</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
+      +(deadline?'<span class="deadline-badge '+(urgent?'deadline-urgent':expired?'deadline-expired':'')+'">'+(expired?'Expired ':urgent?'Due soon: ':'Due: ')+fmtDate(deadline)+(daysLeft!==null&&!expired?' ('+daysLeft+'d)':'')+'</span>':'')
+      +(o.type?'<span class="notice-badge">'+esc(o.typeOfSetAsideDescription||o.type||'')+'</span>':'')
+      +'</div></div>'
+      +'<div id="sum-'+pid+'" class="ai-summary-box"><span class="ai-sum-label">Loading summary…</span></div>'
+      +'<div class="opp-card-footer">'
+      +(inPipe?'<span class="mono muted" style="font-size:11px">✓ In pipeline: '+(TAG_LABELS[inPipe.tag]||inPipe.tag)+'</span>'
+        :'<select class="tag-sel" data-pid="'+pid+'" data-meta="'+esc(JSON.stringify({title:o.title||'Untitled',agency:trunc(o.fullParentPathName||o.departmentName||'',50),naics:o.naicsCode||'',solNum:o.solicitationNumber||'',deadline,url:o.uiLink||'https://sam.gov'}))+'" onchange="tagOppFromSelect(this)">'
+        +'<option value="">+ Pipeline</option>'
+        +Object.entries(TAG_LABELS).map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')
+        +'</select>')
+      +(o.uiLink?'<a class="btn btn-ghost btn-sm" href="'+esc(o.uiLink)+'" target="_blank">View →</a>':'')
+      +'</div></div>';
+  }).join('');
+  if (pag) pag.style.display = 'none';
+  results.forEach(o => {
+    const pid = o.noticeId || o.solicitationNumber || btoa(o.title||'').slice(0,12);
+    genSummary(o, pid);
+  });
+}
+
+async function genSummary(o, pid) {
+  const el = document.getElementById('sum-'+pid);
+  if (!el) return;
+  try {
+    const aiText2 = await callAI('2 sentences max. Federal contract fit for small business prime using subs. Direct, no labels.\nTitle:'+o.title+'\nAgency:'+(o.fullParentPathName||o.departmentName)+'\nNAICS:'+o.naicsCode+'\nType:'+(NOTICE_LABELS[(o.type||'').toLowerCase()]||o.type)+'\nDesc:'+trunc(o.description||'',300), 120);
+    if(el) el.innerHTML='<div class="ai-sum-label">AI Summary</div>'+esc(aiText2||'Unavailable');
+  } catch(e) {
+    if(el) el.innerHTML='<div class="ai-sum-label">AI Summary</div>Summary unavailable';
+  }
 }
 
 function showSearchSpinner(msg) {
