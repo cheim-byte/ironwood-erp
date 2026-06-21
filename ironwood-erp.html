@@ -454,7 +454,7 @@ a:hover{text-decoration:underline}
     <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.70</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.73</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -476,7 +476,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbwjZ1oFoCkQEexbMBh6kNuVXxVKqsxwM90QeWGUYqQDv-igTxKc0zUoPdaoWJbfPL4v/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwQG1B9A4PViL7QaOUmi6lY9lVNI3E0WdDWqkdzqzfbtFh62IQa8Bpvlxv-wqbIRQvfOA/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -1094,10 +1094,16 @@ async function doSearch() {
     // Store the full pulled set for client-side filtering
     window._allOpps = results;
     window._lastPullAt = null;
-    // Cache to localStorage so results survive a page refresh
+    // Cache to localStorage so results survive a page refresh (keep all results)
     try {
       localStorage.setItem('iw_last_pull', JSON.stringify({ at: new Date().toISOString(), opps: results }));
-    } catch(e) { /* localStorage full — skip cache */ }
+    } catch(e) {
+      // Storage full — clear old cache and retry once; if still failing, skip caching
+      try {
+        localStorage.removeItem('iw_last_pull');
+        localStorage.setItem('iw_last_pull', JSON.stringify({ at: new Date().toISOString(), opps: results }));
+      } catch(e2) { /* too big to cache — results stay in memory for this session */ }
+    }
 
     // Populate the post-filter notice type dropdown with what's actually present
     const noticeTypes = [...new Set(results.map(o => o.type).filter(Boolean))].sort();
@@ -1263,16 +1269,31 @@ async function genOppInfoSummary(pid) {
   el.innerHTML = '<span style="color:var(--muted)">● Analyzing opportunity…</span>';
   try {
     const descText = p.description && !p.description.startsWith('http') ? trunc(p.description.replace(/<[^>]*>/g,''), 500) : '';
-    const aiText = await callAI('3-4 sentences. Assess this federal contract for a small business prime that manages subcontractors. Cover: is it a good fit, what work would be subbed out, and any risks or things to watch. Direct, no labels or headers.\nTitle:'+p.title+'\nAgency:'+p.agency+'\nNAICS:'+p.naics+'\nDeadline:'+fmtDate(p.deadline)+'\nDesc:'+descText, 250);
+    // Build prompt — guard against all-empty fields
+    const fields = [
+      p.title ? 'Title: '+p.title : '',
+      p.agency ? 'Agency: '+p.agency : '',
+      p.naics ? 'NAICS: '+p.naics : '',
+      p.deadline ? 'Deadline: '+fmtDate(p.deadline) : '',
+      descText ? 'Description: '+descText : ''
+    ].filter(Boolean).join('\n');
+
+    if (!fields.trim()) {
+      el.innerHTML = '<span style="color:var(--muted)">Not enough opportunity data to assess. Click ↻ on the pipeline card to pull full details from SAM.gov first.</span>';
+      return;
+    }
+
+    const prompt = '3-4 sentences. Assess this federal contract for a small business prime that manages subcontractors. Cover: is it a good fit, what work would be subbed out, and any risks or things to watch. Direct, no labels or headers.\n' + fields;
+    const aiText = await callAI(prompt, 250);
     const summary = aiText || 'Assessment unavailable';
     el.innerHTML = esc(summary) + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:8px">Generated ' + new Date().toLocaleDateString() + ' · <a onclick="genOppInfoSummary(\''+pid+'\')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>';
     el.style.fontStyle = 'normal';
-    // Persist to pipeline
+    // Persist to pipeline — don't let a save error wipe the displayed summary
     S.pipeline[pid].aiSummary = summary;
     S.pipeline[pid].aiSummaryDate = new Date().toISOString();
-    await save('Pipeline');
+    try { await save('Pipeline'); } catch(saveErr) { console.log('Summary save failed, still shown:', saveErr); }
   } catch(e) {
-    el.innerHTML = '<span style="color:var(--red2)">Assessment unavailable — '+esc(e.message)+'</span>';
+    el.innerHTML = '<span style="color:var(--red2)">Assessment unavailable — '+esc(e.message)+'</span><div style="margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary(\''+pid+'\')">Retry</button></div>';
   }
 }
 
@@ -4642,18 +4663,28 @@ function showManualEntry(pid) {
 // ══ AI PROXY HELPER ═══════════════════════════════════════════════════════════
 // Routes AI calls through Apps Script — uses GET to avoid CORS preflight
 async function callAI(prompt, maxTokens=200, model='claude-haiku-4-5') {
-  const payload = encodeURIComponent(JSON.stringify({
-    model, max_tokens: maxTokens,
-    messages: [{ role: 'user', content: prompt }]
-  }));
-  // Use no-cors mode first attempt won't work for reading response
-  // Instead ensure URL stays under 8KB limit
-  const url = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}&payload=${payload}`;
-  const res = await fetch(url, { redirect: 'follow' });
+  if (!prompt || !prompt.trim()) throw new Error('Empty prompt — no data to send');
+  const bodyPayload = JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
+  const url = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}`;
+
+  // Try GET first if short enough (fast), else POST to avoid URL truncation
+  const getUrl = `${url}&payload=${encodeURIComponent(bodyPayload)}`;
+  let res;
+  if (getUrl.length < 7000) {
+    res = await fetch(getUrl, { redirect: 'follow' });
+  } else {
+    // POST with text/plain — no length limit, no CORS preflight
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: SECRET, action: 'ai', sheetUrl: SHEET_URL, payload: bodyPayload }),
+      redirect: 'follow'
+    });
+  }
   if (!res.ok) throw new Error(`AI proxy ${res.status}`);
   const d = await res.json();
   const text = d.content?.[0]?.text || d.text || '';
-  if (!text || d.error) throw new Error(d.error?.message || 'No response');
+  if (!text || d.error) throw new Error(d.error?.message || d.error || 'No response');
   return text.replace(/```json|```/g,'').trim();
 }
 
