@@ -398,7 +398,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.62</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.64</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -1861,10 +1861,13 @@ function openAddQuoteModal(pid, existing) {
   const alreadyQuoting = S.subAssignments.filter(a=>a.oppId===pid&&a.assignId!==q.assignId).map(a=>a.subName);
   openModal(existing?'Edit Sub Quote':'Add Sub Quote', `
     <div class="form-group"><label class="form-label">Subcontractor</label>
-      <select class="form-select" id="aqSub">
-        <option value="">Select subcontractor…</option>
-        ${activeSubs.map(s=>`<option value="${esc(s.name)}" ${q.subName===s.name?'selected':''}>${esc(s.name)} — ${esc(s.trade||'')}${alreadyQuoting.includes(s.name)?' (already quoting)':''}</option>`).join('')}
-      </select>
+      <div style="display:flex;gap:8px">
+        <select class="form-select" id="aqSub" style="flex:1">
+          <option value="">Select subcontractor…</option>
+          ${activeSubs.map(s=>`<option value="${esc(s.name)}" ${q.subName===s.name?'selected':''}>${esc(s.name)} — ${esc(s.trade||'')}${alreadyQuoting.includes(s.name)?' (already quoting)':''}</option>`).join('')}
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="openQuickSubModal('${pid}','${q.assignId||''}')" title="Add a new subcontractor">+ New</button>
+      </div>
     </div>
     <div class="form-group"><label class="form-label">Scope of Work</label>
       <textarea class="form-textarea" id="aqScope" placeholder="What will this sub perform on this opportunity?">${esc(q.scope||'')}</textarea>
@@ -2048,6 +2051,56 @@ function renderSubs(c, ta) {
       </div>
       ${renderAttachSection('subcontractor', s.name.replace(/[^a-z0-9]/gi,'_'))}
     </div>`).join('')}</div>`;
+}
+
+function openQuickSubModal(pid, assignId) {
+  // Lightweight sub creation that returns to the quote modal
+  openModal('Add New Subcontractor', `
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);margin-bottom:12px">Quick-add a sub. You can fill in full details later in the Subcontractors tab.</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Company Name *</label><input class="form-input" id="qsName" placeholder="ABC Contracting LLC"></div>
+      <div class="form-group"><label class="form-label">Trade / Specialty</label><input class="form-input" id="qsTrade" placeholder="Electrical, HVAC, IT…"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="qsPhone"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="qsEmail"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">NAICS Code</label><input class="form-input" id="qsNaics"></div>
+      <div class="form-group"><label class="form-label">SAM Status</label><select class="form-select" id="qsSam"><option>Active</option><option>Expired</option><option>Not Registered</option></select></div>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="reopenQuoteModal('${pid}','${assignId}')">Cancel</button>
+     <button class="btn btn-primary" onclick="saveQuickSub('${pid}','${assignId}')">Add & Use</button>`, true);
+}
+
+async function saveQuickSub(pid, assignId) {
+  const name = v('qsName');
+  if (!name) { toast('Company name required', true); return; }
+  const sub = {
+    name, trade: v('qsTrade'), phone: v('qsPhone'), email: v('qsEmail'),
+    naics: v('qsNaics'), samStatus: v('qsSam'), insExpiry: '',
+    status: 'active', rating: 0, notes: ''
+  };
+  S.subs.push(sub);
+  logActivity(`Added sub: ${name} (from quote)`, 'var(--green2)');
+  await save('Subcontractors');
+  toast(`${name} added ✓`);
+  // Reopen the quote modal with this sub pre-selected
+  window._presetSubName = name;
+  reopenQuoteModal(pid, assignId);
+}
+
+function reopenQuoteModal(pid, assignId) {
+  const existing = assignId ? S.subAssignments.find(a=>a.assignId===assignId) : null;
+  openAddQuoteModal(pid, existing);
+  // Pre-select the newly created sub
+  if (window._presetSubName) {
+    setTimeout(() => {
+      const sel = document.getElementById('aqSub');
+      if (sel) sel.value = window._presetSubName;
+      window._presetSubName = null;
+    }, 50);
+  }
 }
 
 function openSubModal(idx){
@@ -4129,26 +4182,23 @@ async function searchSAMAwards(pid) {
   resultEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;font-family:'DM Mono',monospace;font-size:12px;color:var(--mist)"><div class="spinner" style="width:20px;height:20px;border-width:2px;flex-shrink:0"></div>Searching SAM.gov contract awards (NAICS: ${esc(p.naics||'')})</div>`;
 
   try {
-    // Build query — search by NAICS, limit to contracts (not grants)
+    // Build params — route through proxy to avoid CORS, no duplicate limit
     const params = new URLSearchParams({
-      api_key: samKey,
+      token: SECRET, action: 'samgov', sheetUrl: SHEET_URL,
+      samKey,
       naicsCode: p.naics || '',
-      type: 'AWARD',
-      limit: 10,
-      offset: 0
+      limit: 20,
+      offset: 0,
+      postedFrom: '01/01/2023',
+      postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`,
+      noticeType: 'a'
     });
 
-    // Use Contract Opportunities v2 — awards search
-    // SAM.gov awards endpoint returns awarded contracts
-    const url = `https://api.sam.gov/opportunities/v2/search?${params}&awardStatus=ACTIVE_AWARD&postedFrom=01/01/2022&postedTo=12/31/2026&limit=10&ptype=o,k,p,u,r`;
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      const errText = await res.text().catch(()=>'');
-      throw new Error(`SAM.gov API ${res.status}: ${errText.slice(0,150)}`);
-    }
-
-    const data = await res.json();
+    const res = await fetch(`${API_URL}?${params}`);
+    if (!res.ok) throw new Error(`Proxy ${res.status}`);
+    const proxy = await res.json();
+    if (proxy.error) throw new Error('SAM.gov: ' + proxy.error);
+    const data = proxy.data || proxy;
     const opps = data.opportunitiesData || [];
 
     // Filter to awards (type = 'Award Notice')
