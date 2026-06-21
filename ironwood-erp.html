@@ -91,6 +91,7 @@ a:hover{text-decoration:underline}
 .badge-submitted{background:rgba(155,93,229,0.12);color:var(--purple2);border:1px solid rgba(155,93,229,0.25)}
 .badge-won{background:rgba(82,183,136,0.15);color:var(--green2);border:1px solid rgba(82,183,136,0.3)}
 .badge-loss{background:rgba(107,122,153,0.12);color:var(--mist);border:1px solid rgba(107,122,153,0.2)}
+.badge-pass{background:rgba(196,123,43,0.1);color:var(--amber2);border:1px solid rgba(196,123,43,0.2)}
 .badge-won{background:rgba(82,183,136,0.15);color:var(--green2);border:1px solid rgba(82,183,136,0.3)}
 .badge-lost{background:rgba(230,57,70,0.1);color:var(--red2);border:1px solid rgba(230,57,70,0.2)}
 .badge-active{background:rgba(82,183,136,0.1);color:var(--green2);border:1px solid rgba(82,183,136,0.25)}
@@ -193,6 +194,7 @@ a:hover{text-decoration:underline}
 .lane-submitted .lane-title{color:var(--purple2)}
 .lane-won .lane-title{color:var(--green2)}
 .lane-loss .lane-title{color:var(--mist)}
+.lane-pass .lane-title{color:var(--amber2)}
 .lane-count{font-family:'DM Mono',monospace;font-size:10px;background:rgba(255,255,255,0.06);border-radius:8px;padding:2px 7px;color:var(--mist)}
 .pipe-card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:12px 13px;margin-bottom:8px;cursor:grab;transition:all 0.18s;position:relative;overflow:hidden}
 .pipe-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
@@ -201,6 +203,7 @@ a:hover{text-decoration:underline}
 .lane-submitted .pipe-card::before{background:var(--purple2)}
 .lane-won .pipe-card::before{background:var(--green2)}
 .lane-loss .pipe-card::before{background:var(--muted)}
+.lane-pass .pipe-card::before{background:var(--amber2)}
 .pipe-card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
 .pipe-card:active{cursor:grabbing}
 .pipe-title{font-size:12px;font-weight:600;color:var(--cream);line-height:1.4;margin-bottom:7px}
@@ -398,7 +401,7 @@ a:hover{text-decoration:underline}
   <div class="topbar">
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.66</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.68</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -451,7 +454,7 @@ let lastKeywords = '';
 let dragPid = null;
 let syncing = false;
 
-const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss / Pass' };
+const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss', pass:'Pass' };
 const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
 const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
 const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments'];
@@ -774,8 +777,10 @@ function renderDashboard(c, ta) {
   const pending = S.invoices.filter(i=>i.status==='pending').reduce((a,b)=>a+parseFloat(b.amount||0),0);
   const won = S.winloss.filter(w=>w.outcome==='won').length;
   const lost = S.winloss.filter(w=>w.outcome==='lost').length;
+  const passed = Object.values(S.pipeline).filter(p=>p.tag==='pass').length;
   const winRate = won+lost>0 ? Math.round(won/(won+lost)*100) : 0;
-  const deadlines = Object.values(S.pipeline).filter(p=>p.deadline&&p.tag!=='loss').map(p=>({...p,days:Math.ceil((new Date(p.deadline)-new Date())/86400000)})).filter(p=>p.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
+  const pursuitRate = won+lost+passed>0 ? Math.round(won/(won+lost+passed)*100) : 0;
+  const deadlines = Object.values(S.pipeline).filter(p=>p.deadline&&p.tag!=='loss'&&p.tag!=='pass').map(p=>({...p,days:Math.ceil((new Date(p.deadline)-new Date())/86400000)})).filter(p=>p.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
   const optionAlerts = [];
   S.contracts.forEach(ct => {
     (ct.optionYears||[]).forEach((o,oi) => {
@@ -792,7 +797,7 @@ function renderDashboard(c, ta) {
   <div class="grid4" style="margin-bottom:20px">
     <div class="kpi kpi-amber"><div class="kpi-label">Pipeline</div><div class="kpi-value">${tagged}</div><div class="kpi-sub">${pursuing} quoting · ${bidding} submitted</div></div>
     <div class="kpi kpi-green"><div class="kpi-label">Revenue Collected</div><div class="kpi-value">$${fmt(totalRevenue)}</div><div class="kpi-sub">$${fmt(pending)} pending</div></div>
-    <div class="kpi kpi-blue"><div class="kpi-label">Win Rate</div><div class="kpi-value">${winRate}%</div><div class="kpi-sub">${won} won · ${lost} lost</div></div>
+    <div class="kpi kpi-blue"><div class="kpi-label">Win Rate</div><div class="kpi-value">${winRate}%</div><div class="kpi-sub">${won}W · ${lost}L · ${pursuitRate}% w/ ${passed} passed</div></div>
     <div class="kpi kpi-purple"><div class="kpi-label">Subcontractors</div><div class="kpi-value">${S.subs.length}</div><div class="kpi-sub">${S.subs.filter(s=>s.status==='active').length} active</div></div>
   </div>
   <div class="grid2">
@@ -839,7 +844,7 @@ function renderDashboard(c, ta) {
   <div class="grid3" style="margin-top:16px">
     <div class="card">
       <div class="card-title">Pipeline by Stage</div>
-      ${['watching','quoting','submitted','won','loss'].map(tag=>{const count=Object.values(S.pipeline).filter(p=>p.tag===tag).length;return`<div class="fin-row"><span class="fin-label"><span class="badge badge-${tag}">${TAG_LABELS[tag]}</span></span><span class="mono muted">${count}</span></div>`;}).join('')}
+      ${['watching','quoting','submitted','won','loss','pass'].map(tag=>{const count=Object.values(S.pipeline).filter(p=>p.tag===tag).length;return`<div class="fin-row"><span class="fin-label"><span class="badge badge-${tag}">${TAG_LABELS[tag]}</span></span><span class="mono muted">${count}</span></div>`;}).join('')}
     </div>
     <div class="card">
       <div class="card-title">Invoice Summary</div>
@@ -1275,24 +1280,32 @@ async function tagOpp(pid, tag, meta) {
 function renderPipeline(c, ta) {
   if(!c)c=document.getElementById('content');
   if(!ta)ta=document.getElementById('topbarActions');
-  const lanes=['watching','quoting','submitted','won','loss'];
-  const counts={};lanes.forEach(l=>counts[l]=Object.values(S.pipeline).filter(p=>p.tag===l).length);
-  const total=Object.keys(S.pipeline).length;
+  const showClosed = window._showClosedLanes || false;
+  const lanes = showClosed ? ['watching','quoting','submitted','won','loss','pass'] : ['watching','quoting','submitted','won'];
+  const counts={};['watching','quoting','submitted','won','loss','pass'].forEach(l=>counts[l]=Object.values(S.pipeline).filter(p=>p.tag===l).length);
+  const total=Object.values(S.pipeline).filter(p=>p.tag!=='loss'&&p.tag!=='pass').length;
+  const closedCount = (counts.loss||0)+(counts.pass||0);
+  if(ta) ta.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="toggleClosedLanes()">${showClosed?'Hide':'Show'} Closed (${closedCount})</button>`;
   c.innerHTML=`
   <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
-    <div class="kpi kpi-amber" style="flex:1;min-width:110px"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi kpi-amber" style="flex:1;min-width:110px"><div class="kpi-label">Active</div><div class="kpi-value">${total}</div></div>
     <div class="kpi kpi-blue" style="flex:1;min-width:110px"><div class="kpi-label">Watching</div><div class="kpi-value">${counts.watching||0}</div></div>
     <div class="kpi kpi-amber" style="flex:1;min-width:110px"><div class="kpi-label">Quoting</div><div class="kpi-value">${counts.quoting||0}</div></div>
     <div class="kpi kpi-purple" style="flex:1;min-width:110px"><div class="kpi-label">Submitted</div><div class="kpi-value">${counts.submitted||0}</div></div>
     <div class="kpi kpi-green" style="flex:1;min-width:110px"><div class="kpi-label">Won</div><div class="kpi-value">${counts.won||0}</div></div>
   </div>
-  <div class="kanban-wrap"><div class="kanban">
+  <div class="kanban-wrap"><div class="kanban" style="grid-template-columns:repeat(${lanes.length},1fr)">
     ${lanes.map(lane=>`
     <div class="lane lane-${lane}" ondragover="event.preventDefault()" ondrop="dropCard(event,'${lane}')">
       <div class="lane-h"><span class="lane-title">${TAG_LABELS[lane]}</span><span class="lane-count">${counts[lane]||0}</span></div>
       <div id="lc-${lane}">${Object.entries(S.pipeline).filter(([,p])=>p.tag===lane).map(([pid,p])=>pipeCard(pid,p)).join('')||'<div class="empty-lane">Drop here</div>'}</div>
     </div>`).join('')}
   </div></div>`;
+}
+
+function toggleClosedLanes() {
+  window._showClosedLanes = !window._showClosedLanes;
+  renderPipeline();
 }
 
 function pipeCard(pid, p) {
@@ -1342,7 +1355,7 @@ async function dropCard(e, newTag) {
   const pid=e.dataTransfer.getData('text/plain')||dragPid;
   if(pid&&S.pipeline[pid]){S.pipeline[pid].tag=newTag;logActivity(`Moved "${trunc(S.pipeline[pid].title,30)}" to ${TAG_LABELS[newTag]}`,'var(--amber)');await save('Pipeline');renderPipeline();}
 }
-async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();toast(`Moved to ${TAG_LABELS[tag]} ✓`);}}
+async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();const hidden=(tag==='loss'||tag==='pass');toast(hidden?`Moved to ${TAG_LABELS[tag]} — hidden from board ✓`:`Moved to ${TAG_LABELS[tag]} ✓`);}}
 async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');renderPipeline();}
 
 async function refreshOpp(pid) {
