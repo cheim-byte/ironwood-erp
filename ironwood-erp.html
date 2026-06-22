@@ -454,7 +454,9 @@ a:hover{text-decoration:underline}
     <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.75</span>
+      <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
+      <span id="quotaBadge" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);letter-spacing:0.05em;padding:2px 8px;border:1px solid var(--border);border-radius:4px" title="SAM.gov daily quota">SAM 0/10</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.78</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -480,6 +482,57 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwQG1B9A4PViL7QaOUmi6lY
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
+
+// ══ SAM.GOV QUOTA COUNTER ═════════════════════════════════════════════════════
+// SAM.gov public key allows 10 calls/day, resets at midnight UTC (8pm EST / 7pm EDT)
+const SAM_DAILY_LIMIT = 10;
+
+function samQuotaDayKey() {
+  // The "quota day" is keyed to UTC date — matches SAM.gov's midnight-UTC reset
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD in UTC
+}
+
+function getSamQuota() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('iw_sam_quota') || '{}');
+    if (raw.day === samQuotaDayKey()) return raw.count || 0;
+    return 0; // new UTC day — counter reset
+  } catch(e) { return 0; }
+}
+
+function bumpSamQuota(n = 1) {
+  const day = samQuotaDayKey();
+  let count = getSamQuota() + n;
+  try { localStorage.setItem('iw_sam_quota', JSON.stringify({ day, count })); } catch(e) {}
+  renderQuotaCounter();
+  return count;
+}
+
+function renderQuotaCounter() {
+  const el = document.getElementById('quotaCounter');
+  const badge = document.getElementById('quotaBadge');
+  if (!el) return;
+  const used = getSamQuota();
+  const remaining = SAM_DAILY_LIMIT - used;
+  let color, bg, borderColor;
+  if (remaining <= 0)      { color = 'var(--red2)';   bg = 'rgba(230,57,70,0.12)';    borderColor = 'rgba(230,57,70,0.35)'; }
+  else if (remaining <= 3) { color = 'var(--amber2)'; bg = 'rgba(196,123,43,0.12)';   borderColor = 'rgba(196,123,43,0.35)'; }
+  else                     { color = 'var(--green2)'; bg = 'rgba(82,183,136,0.10)';   borderColor = 'rgba(82,183,136,0.30)'; }
+  el.style.color = color;
+  el.style.background = bg;
+  el.innerHTML = `📡 ${used} / ${SAM_DAILY_LIMIT} SAM`;
+  if (badge) {
+    const resetHour = 20; // 8pm EST = midnight UTC
+    const now = new Date();
+    const estOffset = -5; // approximate; close enough for display
+    const estHour = (now.getUTCHours() + 24 + estOffset) % 24;
+    const hoursUntilReset = estHour < resetHour ? resetHour - estHour : 24 - estHour + resetHour;
+    badge.style.color = color;
+    badge.style.borderColor = borderColor;
+    badge.title = `${remaining} call${remaining!==1?'s':''} remaining today · Resets ~8pm EST (midnight UTC) · ~${hoursUntilReset}h from now`;
+    badge.innerHTML = `SAM ${remaining}/${SAM_DAILY_LIMIT} left`;
+  }
+}
 const SAM_KEY_DATE_STORE = 'iw_sam_key_date'; // ISO date when key was last saved
 const DRIVE_CLIENT_ID_STORE = 'iw_drive_client_id';
 const DRIVE_FOLDER_STORE = 'iw_drive_folder';
@@ -1087,11 +1140,14 @@ async function doSearch() {
     if (fState) params.set('placeOfPerformanceState', fState);
 
     const res = await fetch(`${API_URL}?${params}`);
+    bumpSamQuota();  // count this SAM.gov pull
     if (!res.ok) throw new Error(`Proxy ${res.status}`);
     const proxy = await res.json();
     if (proxy.error) {
       if (proxy.error.includes('429') || proxy.error.includes('quota')) {
         localStorage.setItem('iw_sam_quota_hit', new Date().toISOString());
+        try { localStorage.setItem('iw_sam_quota', JSON.stringify({ day: samQuotaDayKey(), count: SAM_DAILY_LIMIT })); } catch(e){}
+        renderQuotaCounter();
         throw new Error('SAM.gov: ' + proxy.error);
       }
       throw new Error(proxy.error);
@@ -1295,38 +1351,168 @@ function renderSearchResults(results, explanation) {
   if (pag) pag.style.display = 'none';
 }
 
+function renderStoredAiSummary(stored, dateStr, pid) {
+  // Parse stored "KEY: value\nKEY: value" format back into cards
+  const sectionColors = {
+    'FIT':          { label: '🎯 Fit',          color: 'var(--green2)',  bg: 'rgba(82,183,136,0.07)'  },
+    'COMPETITION':  { label: '⚔️ Competition',  color: 'var(--blue2)',   bg: 'rgba(69,123,157,0.07)'  },
+    'SUB STRATEGY': { label: '👷 Sub Strategy', color: 'var(--amber2)',  bg: 'rgba(196,123,43,0.07)'  },
+    'BID ANGLE':    { label: '💰 Bid Angle',     color: 'var(--purple2)', bg: 'rgba(155,93,229,0.07)'  },
+    'NEXT ACTION':  { label: '▶ Next Action',   color: 'var(--cream)',   bg: 'rgba(255,255,255,0.04)' }
+  };
+  const sections = {};
+  const lines = stored.split('\n');
+  for (const line of lines) {
+    for (const key of Object.keys(sectionColors)) {
+      if (line.startsWith(key + ':')) { sections[key] = line.slice(key.length + 1).trim(); }
+    }
+  }
+  const hasSections = Object.keys(sections).length > 0;
+  let html;
+  if (hasSections) {
+    html = Object.entries(sectionColors).map(([key, { label, color, bg }]) => {
+      if (!sections[key]) return '';
+      return `<div style="background:${bg};border-left:2px solid ${color};border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:3px">${label}</div>
+        <div style="font-size:13px;color:var(--cream);line-height:1.55">${esc(sections[key])}</div>
+      </div>`;
+    }).join('');
+  } else {
+    // Legacy plain-text summary — render as-is
+    html = `<div style="font-size:13px;color:var(--mist);line-height:1.6">${esc(stored)}</div>`;
+  }
+  const genDate = dateStr ? new Date(dateStr).toLocaleDateString() : '';
+  html += `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:10px">Generated ${genDate}</div>`;
+  return html;
+}
+
 async function genOppInfoSummary(pid) {
   const p = S.pipeline[pid];
   const el = document.getElementById('oppAiSummary');
   if (!p || !el) return;
   el.innerHTML = '<span style="color:var(--muted)">● Analyzing opportunity…</span>';
   try {
-    const descText = p.description && !p.description.startsWith('http') ? trunc(p.description.replace(/<[^>]*>/g,''), 500) : '';
-    // Build prompt — guard against all-empty fields
-    const fields = [
-      p.title ? 'Title: '+p.title : '',
-      p.agency ? 'Agency: '+p.agency : '',
-      p.naics ? 'NAICS: '+p.naics : '',
-      p.deadline ? 'Deadline: '+fmtDate(p.deadline) : '',
-      descText ? 'Description: '+descText : ''
-    ].filter(Boolean).join('\n');
+    const descText = p.description && !p.description.startsWith('http')
+      ? trunc(p.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' '), 800) : '';
 
-    if (!fields.trim()) {
-      el.innerHTML = '<span style="color:var(--muted)">Not enough opportunity data to assess. Click ↻ on the pipeline card to pull full details from SAM.gov first.</span>';
+    if (!p.title && !p.agency && !descText) {
+      el.innerHTML = '<span style="color:var(--muted)">Not enough data to assess. Click ↻ on the pipeline card to pull full details from SAM.gov first.</span>';
       return;
     }
 
-    const prompt = '3-4 sentences. Assess this federal contract for a small business prime that manages subcontractors. Cover: is it a good fit, what work would be subbed out, and any risks or things to watch. Direct, no labels or headers.\n' + fields;
-    const aiText = await callAI(prompt, 250);
+    // ── Gather sub assignment context for this opp ──────────────────────────
+    const oppSubs = S.subAssignments.filter(a => a.oppId === pid);
+    const awardedSub = oppSubs.find(a => a.status === 'awarded');
+    const subLines = oppSubs.length
+      ? oppSubs.map(a => `  • ${a.subName} — ${a.scope ? trunc(a.scope,60) : 'no scope'} — $${fmt(a.quotedAmount||0)} — ${a.status}`).join('\n')
+      : '  None assigned yet';
+
+    // ── Win/loss history for this agency ───────────────────────────────────
+    const agencyWL = S.winloss.filter(w => w.agency && p.agency && w.agency.toLowerCase().includes(p.agency.toLowerCase().split(' ')[0]));
+    const wlLines = agencyWL.length
+      ? agencyWL.map(w => `  • ${w.outcome.toUpperCase()} — ${w.name} — $${fmt(w.value||0)} — ${w.reason ? trunc(w.reason,80) : ''}`).join('\n')
+      : '  No prior bids with this agency';
+
+    // ── Agency relationship notes ──────────────────────────────────────────
+    const agencyRec = S.agencies.find(a => a.name && p.agency && a.name.toLowerCase().includes(p.agency.toLowerCase().split(' ')[0]));
+    const agencyNotes = agencyRec?.notes ? trunc(agencyRec.notes, 200) : '';
+
+    // ── Bid data ──────────────────────────────────────────────────────────
+    const bidLines = [
+      p.finalBid ? `  Final bid: $${fmt(p.finalBid)}` : '',
+      p.prevContractValue ? `  Previous contract value: $${fmt(p.prevContractValue)}${p.prevContractSource ? ' ('+p.prevContractSource+')' : ''}` : '',
+      awardedSub ? `  Awarded sub cost: $${fmt(awardedSub.quotedAmount||0)} — Margin if finalBid set: ${p.finalBid && awardedSub.quotedAmount ? ((p.finalBid - awardedSub.quotedAmount)/p.finalBid*100).toFixed(1)+'%' : 'not yet calculated'}` : ''
+    ].filter(Boolean).join('\n') || '  No bid data entered yet';
+
+    const margin = S.settings.margin || 15;
+
+    const prompt = `You are assessing a federal contract opportunity for Ironwood Solutions LLC, a small business federal prime contractor that operates on a subcontractor pass-through model (we manage subs, we do not self-perform work). Our default target margin is ${margin}%.
+
+Respond ONLY in this exact format — no preamble, no markdown, no extra text:
+
+FIT: [1 sentence — is this a strong/moderate/weak fit and why]
+COMPETITION: [1 sentence — set-aside type implications, likely competition landscape, incumbent risk if any]
+SUB STRATEGY: [1-2 sentences — what trade(s) to sub out, which of our roster subs fit, any coverage gaps]
+BID ANGLE: [1 sentence — pricing competitiveness relative to previous contract value, margin realism]
+NEXT ACTION: [1 sentence — the single most important thing to do right now, specific and direct]
+
+OPPORTUNITY:
+Title: ${p.title || '—'}
+Agency: ${p.agency || '—'}
+NAICS: ${p.naics || '—'}
+Stage: ${TAG_LABELS[p.tag] || p.tag || '—'}
+Deadline: ${p.deadline ? fmtDate(p.deadline) : '—'}
+${descText ? 'Description: '+descText : ''}
+
+SUB ASSIGNMENTS:
+${subLines}
+
+BID DATA:
+${bidLines}
+
+AGENCY HISTORY (win/loss):
+${wlLines}
+${agencyNotes ? '\nAGENCY NOTES:\n  '+agencyNotes : ''}
+
+OUR SUB ROSTER (active only): ${S.subs.filter(s=>s.status==='active').map(s=>`${s.name} [${s.trade}${s.naics?' NAICS '+s.naics:''}]`).join(', ') || 'None on file'}`;
+
+    const aiText = await callAI(prompt, 500);
     const summary = aiText || 'Assessment unavailable';
-    el.innerHTML = esc(summary) + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:8px">Generated ' + new Date().toLocaleDateString() + ' · <a onclick="genOppInfoSummary(\''+pid+'\')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>';
+
+    // ── Render as structured cards ─────────────────────────────────────────
+    const sections = { FIT: null, COMPETITION: null, 'SUB STRATEGY': null, 'BID ANGLE': null, 'NEXT ACTION': null };
+    const sectionColors = {
+      'FIT':          { label: '🎯 Fit',             color: 'var(--green2)',  bg: 'rgba(82,183,136,0.07)'  },
+      'COMPETITION':  { label: '⚔️ Competition',     color: 'var(--blue2)',   bg: 'rgba(69,123,157,0.07)'  },
+      'SUB STRATEGY': { label: '👷 Sub Strategy',    color: 'var(--amber2)',  bg: 'rgba(196,123,43,0.07)'  },
+      'BID ANGLE':    { label: '💰 Bid Angle',        color: 'var(--purple2)', bg: 'rgba(155,93,229,0.07)'  },
+      'NEXT ACTION':  { label: '▶ Next Action',      color: 'var(--cream)',   bg: 'rgba(255,255,255,0.04)' }
+    };
+
+    // Parse sections from response
+    let parsed = false;
+    const lines = summary.split('\n');
+    for (const line of lines) {
+      for (const key of Object.keys(sections)) {
+        if (line.startsWith(key + ':')) {
+          sections[key] = line.slice(key.length + 1).trim();
+          parsed = true;
+        }
+      }
+    }
+
+    let html;
+    if (parsed && Object.values(sections).some(v => v)) {
+      html = Object.entries(sections).map(([key, val]) => {
+        if (!val) return '';
+        const { label, color, bg } = sectionColors[key];
+        return `<div style="background:${bg};border-left:2px solid ${color};border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:3px">${label}</div>
+          <div style="font-size:13px;color:var(--cream);line-height:1.55">${esc(val)}</div>
+        </div>`;
+      }).join('');
+    } else {
+      // Fallback: render as plain text if format wasn't followed
+      html = `<div style="font-size:13px;color:var(--mist);line-height:1.6">${esc(summary)}</div>`;
+    }
+
+    html += `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:10px">Generated ${new Date().toLocaleDateString()} · <a onclick="genOppInfoSummary('${pid}')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>`;
+
+    el.innerHTML = html;
     el.style.fontStyle = 'normal';
-    // Persist to pipeline — don't let a save error wipe the displayed summary
-    S.pipeline[pid].aiSummary = summary;
+
+    // Persist plain text version to pipeline for storage
+    const plainSummary = Object.entries(sections)
+      .filter(([,v]) => v)
+      .map(([k,v]) => `${k}: ${v}`)
+      .join('\n') || summary;
+
+    S.pipeline[pid].aiSummary = plainSummary;
     S.pipeline[pid].aiSummaryDate = new Date().toISOString();
     try { await save('Pipeline'); } catch(saveErr) { console.log('Summary save failed, still shown:', saveErr); }
+
   } catch(e) {
-    el.innerHTML = '<span style="color:var(--red2)">Assessment unavailable — '+esc(e.message)+'</span><div style="margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary(\''+pid+'\')">Retry</button></div>';
+    el.innerHTML = `<span style="color:var(--red2)">Assessment unavailable — ${esc(e.message)}</span><div style="margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">Retry</button></div>`;
   }
 }
 
@@ -1500,10 +1686,13 @@ async function refreshOpp(pid) {
       q: solNum
     });
     const res = await fetch(`${API_URL}?${params}`);
+    bumpSamQuota();  // count this SAM.gov refresh
     if (!res.ok) throw new Error(`Proxy ${res.status}`);
     const proxy = await res.json();
     if (proxy.error) {
       if (proxy.error.includes('429') || proxy.error.includes('quota')) {
+        try { localStorage.setItem('iw_sam_quota', JSON.stringify({ day: samQuotaDayKey(), count: SAM_DAILY_LIMIT })); } catch(e){}
+        renderQuotaCounter();
         throw new Error('Daily SAM.gov quota reached — try again tomorrow');
       }
       throw new Error(proxy.error);
@@ -1636,12 +1825,10 @@ function renderOppInfoTab(pid) {
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green2);text-transform:uppercase;letter-spacing:0.1em">AI Fit Assessment</div>
-          ${!p.aiSummary?`<button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">Generate ✦</button>`:''}
+          <button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">${p.aiSummary ? '↻ Regenerate' : 'Generate ✦'}</button>
         </div>
         <div id="oppAiSummary" style="background:rgba(82,183,136,0.05);border:1px solid rgba(82,183,136,0.15);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--mist);line-height:1.6;${p.aiSummary?'':'font-style:italic'}">
-          ${p.aiSummary
-            ? esc(p.aiSummary) + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:8px">Generated ' + (p.aiSummaryDate?new Date(p.aiSummaryDate).toLocaleDateString():'') + ' · <a onclick="genOppInfoSummary(\''+pid+'\')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>'
-            : '<span style="color:var(--muted)">Click "Generate" to get an AI assessment of whether this opportunity is a good fit and how to approach it.</span>'}
+          ${p.aiSummary ? renderStoredAiSummary(p.aiSummary, p.aiSummaryDate, pid) : '<span style="color:var(--muted)">Click "Generate" to get an AI fit assessment — covers opportunity fit, competition landscape, sub strategy, bid angle, and next action.</span>'}
         </div>
       </div>
 
@@ -2124,6 +2311,7 @@ async function fetchOppDescription(pid, descUrl) {
     const fullUrl = descUrl.includes('api_key=') ? descUrl : descUrl + (descUrl.includes('?') ? '&' : '?') + 'api_key=' + samKey;
     const proxyUrl = `${API_URL}?token=${SECRET}&action=samgov&sheetUrl=${encodeURIComponent(SHEET_URL)}&url=${encodeURIComponent(fullUrl)}`;
     const res = await fetch(proxyUrl);
+    bumpSamQuota();  // count this SAM.gov description fetch
     const proxy = await res.json();
     if (proxy.error) throw new Error(proxy.error);
     const data = proxy.data || proxy;
@@ -4329,6 +4517,7 @@ async function searchSAMAwards(pid) {
     });
 
     const res = await fetch(`${API_URL}?${params}`);
+    bumpSamQuota();  // count this SAM.gov awards search
     if (!res.ok) throw new Error(`Proxy ${res.status}`);
     const proxy = await res.json();
     if (proxy.error) throw new Error('SAM.gov: ' + proxy.error);
@@ -4840,6 +5029,7 @@ try {
   localStorage.removeItem('iw_last_pull');
 } catch(e) {}
 
+renderQuotaCounter();
 fetchSecureKeys().then(() => loadFromSheet());
 </script>
 </body>
