@@ -456,7 +456,7 @@ a:hover{text-decoration:underline}
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
       <span id="quotaBadge" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);letter-spacing:0.05em;padding:2px 8px;border:1px solid var(--border);border-radius:4px" title="SAM.gov daily quota">SAM 0/10</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.78</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.80</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -478,7 +478,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbwQG1B9A4PViL7QaOUmi6lY9lVNI3E0WdDWqkdzqzfbtFh62IQa8Bpvlxv-wqbIRQvfOA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwJu2xrQ2e2ljlIEdFnrKzeggtXe0scbDgk-C8e5FIOEUA1utoSGl1CzFJg8wB3gB0g-A/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -4889,22 +4889,15 @@ function showManualEntry(pid) {
 async function callAI(prompt, maxTokens=200, model='claude-haiku-4-5') {
   if (!prompt || !prompt.trim()) throw new Error('Empty prompt — no data to send');
   const bodyPayload = JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
-  const url = `${API_URL}?token=${SECRET}&action=ai&sheetUrl=${encodeURIComponent(SHEET_URL)}`;
 
-  // Try GET first if short enough (fast), else POST to avoid URL truncation
-  const getUrl = `${url}&payload=${encodeURIComponent(bodyPayload)}`;
-  let res;
-  if (getUrl.length < 7000) {
-    res = await fetch(getUrl, { redirect: 'follow' });
-  } else {
-    // POST with text/plain — no length limit, no CORS preflight
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ token: SECRET, action: 'ai', sheetUrl: SHEET_URL, payload: bodyPayload }),
-      redirect: 'follow'
-    });
-  }
+  // Always POST with text/plain — avoids the GET payload double-decode bug and
+  // has no URL-length limit and no CORS preflight.
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: SECRET, action: 'ai', sheetUrl: SHEET_URL, payload: bodyPayload }),
+    redirect: 'follow'
+  });
   if (!res.ok) throw new Error(`AI proxy ${res.status}`);
   const d = await res.json();
   const text = d.content?.[0]?.text || d.text || '';
