@@ -454,7 +454,7 @@ a:hover{text-decoration:underline}
     <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.73</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.75</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -510,7 +510,7 @@ let syncing = false;
 const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss', pass:'Pass' };
 const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
 const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
-const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments'];
+const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments','SearchCache'];
 
 
 
@@ -726,6 +726,51 @@ async function syncToSheet(tab) {
     Attachments: attachmentsToRows
   };
   if (map[tab]) await sheetWrite(tab, map[tab]());
+}
+
+// ══ SEARCH CACHE — stores last pull in Sheets, wiped & replaced each pull ══════
+async function saveSearchCache(results) {
+  // Header + one row per opp with the key fields needed to rebuild cards
+  const rows = [['noticeId','title','solNum','agency','dept','naics','naicsDesc','type','setAside','postedDate','deadline','uiLink','psc','popJSON','pocJSON','description','pulledAt']];
+  const pulledAt = new Date().toISOString();
+  results.forEach(o => rows.push([
+    o.noticeId||'', o.title||'', o.solicitationNumber||'',
+    o.fullParentPathName||'', o.departmentName||'',
+    o.naicsCode||'', o.naicsDescription||'', o.type||'',
+    o.typeOfSetAsideDescription||o.typeOfSetAside||'',
+    o.postedDate||'', o.responseDeadLine||'', o.uiLink||'',
+    o.classificationCode||'',
+    JSON.stringify(o.placeOfPerformance||{}),
+    JSON.stringify(o.pointOfContact||[]),
+    trunc(o.description||'', 1500),
+    pulledAt
+  ]));
+  await sheetWrite('SearchCache', rows);
+}
+
+function rowsToSearchCache(rows) {
+  return rows.slice(1).filter(r=>r[0]||r[1]).map(r => ({
+    noticeId:r[0], title:r[1], solicitationNumber:r[2],
+    fullParentPathName:r[3], departmentName:r[4],
+    naicsCode:r[5], naicsDescription:r[6], type:r[7],
+    typeOfSetAsideDescription:r[8], postedDate:r[9], responseDeadLine:r[10],
+    uiLink:r[11], classificationCode:r[12],
+    placeOfPerformance:(()=>{try{return JSON.parse(r[13]||'{}');}catch(e){return {};}})(),
+    pointOfContact:(()=>{try{return JSON.parse(r[14]||'[]');}catch(e){return [];}})(),
+    description:r[15]||'', _pulledAt:r[16]||''
+  }));
+}
+
+async function loadSearchCache() {
+  try {
+    const rows = await sheetRead('SearchCache');
+    const opps = rowsToSearchCache(rows);
+    if (opps.length) {
+      window._allOpps = opps;
+      window._lastPullAt = opps[0]._pulledAt || null;
+    }
+    return opps;
+  } catch(e) { return []; }
 }
 
 async function loadFromSheet() {
@@ -976,15 +1021,11 @@ function renderSearch(c, ta) {
     <span class="mono muted" id="pageInfo"></span>
     <button class="btn btn-ghost btn-sm" id="nextBtn" onclick="changePage(1)">Next →</button>
   </div>`;
-  // Restore from localStorage cache if memory is empty (e.g. after refresh)
+  // Restore from Sheets cache if memory is empty (e.g. after refresh or new device)
   if ((!window._allOpps || !window._allOpps.length)) {
-    try {
-      const cached = JSON.parse(localStorage.getItem('iw_last_pull') || 'null');
-      if (cached && cached.opps && cached.opps.length) {
-        window._allOpps = cached.opps;
-        window._lastPullAt = cached.at;
-      }
-    } catch(e) { /* no cache */ }
+    loadSearchCache().then(opps => {
+      if (opps && opps.length) renderSearch(c, ta); // re-render once loaded
+    });
   }
   // Restore previous pull if results exist
   if (window._allOpps && window._allOpps.length) {
@@ -1001,7 +1042,7 @@ function renderSearch(c, ta) {
       const sr = document.getElementById('searchResults');
       if (sr) {
         const banner = document.createElement('div');
-        banner.innerHTML = `<div style="padding:8px 14px;background:rgba(69,123,157,0.08);border:1px solid rgba(69,123,157,0.2);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--blue2);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📦 Showing cached pull from ${ageLabel} (${window._allOpps.length} opps) — no API call used</span><button class="btn btn-ghost btn-xs" onclick="clearPullCache()">Clear cache</button></div>`;
+        banner.innerHTML = `<div style="padding:8px 14px;background:rgba(69,123,157,0.08);border:1px solid rgba(69,123,157,0.2);border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--blue2);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📦 Showing saved pull from ${ageLabel} (${window._allOpps.length} opps) — no API call used</span><button class="btn btn-ghost btn-xs" onclick="clearPullCache()">Clear</button></div>`;
         sr.parentNode.insertBefore(banner.firstChild, sr);
       }
     }
@@ -1009,12 +1050,12 @@ function renderSearch(c, ta) {
   }
 }
 
-function clearPullCache() {
-  localStorage.removeItem('iw_last_pull');
+async function clearPullCache() {
   window._allOpps = [];
   window._lastPullAt = null;
+  try { await sheetWrite('SearchCache', [['noticeId','title','solNum','agency','dept','naics','naicsDesc','type','setAside','postedDate','deadline','uiLink','psc','popJSON','pocJSON','description','pulledAt']]); } catch(e){}
   nav('search');
-  toast('Pull cache cleared');
+  toast('Saved pull cleared');
 }
 
 async function doSearch() {
@@ -1093,17 +1134,9 @@ async function doSearch() {
 
     // Store the full pulled set for client-side filtering
     window._allOpps = results;
-    window._lastPullAt = null;
-    // Cache to localStorage so results survive a page refresh (keep all results)
-    try {
-      localStorage.setItem('iw_last_pull', JSON.stringify({ at: new Date().toISOString(), opps: results }));
-    } catch(e) {
-      // Storage full — clear old cache and retry once; if still failing, skip caching
-      try {
-        localStorage.removeItem('iw_last_pull');
-        localStorage.setItem('iw_last_pull', JSON.stringify({ at: new Date().toISOString(), opps: results }));
-      } catch(e2) { /* too big to cache — results stay in memory for this session */ }
-    }
+    window._lastPullAt = new Date().toISOString();
+    // Save to Google Sheets — wipes previous pull, persists across devices
+    saveSearchCache(results).catch(e => console.warn('Search cache save failed:', e.message));
 
     // Populate the post-filter notice type dropdown with what's actually present
     const noticeTypes = [...new Set(results.map(o => o.type).filter(Boolean))].sort();
@@ -3537,6 +3570,8 @@ function renderSettings(c,ta){
       </div>
       <div style="font-size:12px;color:var(--mist);margin-bottom:12px">Data syncs automatically on every save. Open this ERP on any device with the same URL and all your data will be there.</div>
       <button class="btn btn-ghost btn-sm" onclick="loadFromSheet()">↻ Force Refresh from Sheet</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearLocalCache()" style="margin-left:8px">🧹 Clear Browser Cache</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">Clears temporary data stored in this browser. Your API keys and Google Sheets data are not affected.</div>
     </div>
     <div class="setting-group">
       <div class="setting-group-title">Data Backup</div>
@@ -4767,6 +4802,44 @@ S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwo
 updateBadges();
 setSyncStatus('syncing','Loading…');
 // Fetch secure keys from Apps Script, then load Sheet data
+// Purge dead localStorage keys from old versions on startup
+function clearLocalCache() {
+  if (!confirm('Clear temporary browser data?\n\nThis removes cached search data and old leftover data. Your SAM.gov API key, Drive settings, and all Google Sheets data are kept.')) return;
+  const keepKeys = ['iw_sam_key','iw_sam_key_date','iw_drive_client_id','iw_drive_folder'];
+  try {
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && !keepKeys.includes(key)) toRemove.push(key);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+    window._allOpps = [];
+    window._lastPullAt = null;
+    toast(`Cleared ${toRemove.length} cached item${toRemove.length!==1?'s':''} ✓`);
+  } catch(e) {
+    toast('Error clearing cache', true);
+  }
+}
+
+function purgeOldLocalStorage() {
+  const keepKeys = ['iw_sam_key','iw_sam_key_date','iw_drive_client_id','iw_drive_folder','iw_sam_quota_hit'];
+  try {
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('iw_') && !keepKeys.includes(key)) toRemove.push(key);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+    if (toRemove.length) console.log('Cleared old cache keys:', toRemove.join(', '));
+  } catch(e) {}
+}
+purgeOldLocalStorage();
+
+// Remove stale search cache from localStorage (moved to Google Sheets in v0.74)
+try {
+  localStorage.removeItem('iw_last_pull');
+} catch(e) {}
+
 fetchSecureKeys().then(() => loadFromSheet());
 </script>
 </body>
