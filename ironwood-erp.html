@@ -456,7 +456,7 @@ a:hover{text-decoration:underline}
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
       <span id="quotaBadge" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);letter-spacing:0.05em;padding:2px 8px;border:1px solid var(--border);border-radius:4px" title="SAM.gov daily quota">SAM 0/10</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.80</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.84</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -478,7 +478,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbwJu2xrQ2e2ljlIEdFnrKzeggtXe0scbDgk-C8e5FIOEUA1utoSGl1CzFJg8wB3gB0g-A/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw9AzXA63bUCDlNz1tWvVj8S3sbf9KvYc0g1TjQ8WREysrV8tqkKpiprW7db40777vqPQ/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -486,6 +486,15 @@ const SAM_KEY_STORE = 'iw_sam_key';
 // ══ SAM.GOV QUOTA COUNTER ═════════════════════════════════════════════════════
 // SAM.gov public key allows 10 calls/day, resets at midnight UTC (8pm EST / 7pm EDT)
 const SAM_DAILY_LIMIT = 10;
+
+// Auto-run AI fit assessment when a NEW opp is added to the pipeline.
+// Toggle from Settings; persists in localStorage. Default ON.
+let AUTO_AI_ASSESS = localStorage.getItem('iw_auto_ai_assess') !== 'false';
+function setAutoAiAssess(on) {
+  AUTO_AI_ASSESS = !!on;
+  localStorage.setItem('iw_auto_ai_assess', on ? 'true' : 'false');
+  toast(on ? 'Auto AI assessment ON ✓' : 'Auto AI assessment OFF');
+}
 
 function samQuotaDayKey() {
   // The "quota day" is keyed to UTC date — matches SAM.gov's midnight-UTC reset
@@ -1351,89 +1360,128 @@ function renderSearchResults(results, explanation) {
   if (pag) pag.style.display = 'none';
 }
 
-function renderStoredAiSummary(stored, dateStr, pid) {
-  // Parse stored "KEY: value\nKEY: value" format back into cards
-  const sectionColors = {
-    'FIT':          { label: '🎯 Fit',          color: 'var(--green2)',  bg: 'rgba(82,183,136,0.07)'  },
-    'COMPETITION':  { label: '⚔️ Competition',  color: 'var(--blue2)',   bg: 'rgba(69,123,157,0.07)'  },
-    'SUB STRATEGY': { label: '👷 Sub Strategy', color: 'var(--amber2)',  bg: 'rgba(196,123,43,0.07)'  },
-    'BID ANGLE':    { label: '💰 Bid Angle',     color: 'var(--purple2)', bg: 'rgba(155,93,229,0.07)'  },
-    'NEXT ACTION':  { label: '▶ Next Action',   color: 'var(--cream)',   bg: 'rgba(255,255,255,0.04)' }
-  };
+// Shared section config + parser for AI assessment output
+const AI_SECTION_CONFIG = {
+  'FIT':         { label: '🎯 Fit',          color: 'var(--green2)',  bg: 'rgba(82,183,136,0.07)'  },
+  'COMPETITION': { label: '⚔️ Competition',  color: 'var(--blue2)',   bg: 'rgba(69,123,157,0.07)'  },
+  'SUPPLIERS':   { label: '📦 Suppliers / Subs', color: 'var(--amber2)', bg: 'rgba(196,123,43,0.07)' },
+  'NEXT ACTION': { label: '▶ Next Action',   color: 'var(--cream)',   bg: 'rgba(255,255,255,0.04)' }
+};
+
+// Parse "KEY: value" output where values (esp. SUPPLIERS) may span multiple lines,
+// until the next known KEY header.
+function parseAiSections(text) {
+  const keys = Object.keys(AI_SECTION_CONFIG);
   const sections = {};
-  const lines = stored.split('\n');
-  for (const line of lines) {
-    for (const key of Object.keys(sectionColors)) {
-      if (line.startsWith(key + ':')) { sections[key] = line.slice(key.length + 1).trim(); }
+  const lines = text.split('\n');
+  let current = null;
+  for (let raw of lines) {
+    const line = raw.replace(/^\s*[-•*]\s?/, m => m); // keep bullets
+    let matchedKey = null;
+    for (const key of keys) {
+      if (line.trim().toUpperCase().startsWith(key + ':')) { matchedKey = key; break; }
+    }
+    if (matchedKey) {
+      current = matchedKey;
+      const val = line.trim().slice(matchedKey.length + 1).trim();
+      sections[current] = val ? [val] : [];
+    } else if (current && line.trim()) {
+      sections[current].push(line.trim());
     }
   }
+  // join into strings; SUPPLIERS keeps line breaks, others collapse
+  const out = {};
+  for (const [k, arr] of Object.entries(sections)) out[k] = arr.join('\n').trim();
+  return out;
+}
+
+// Render a supplier list value (multi-line) into styled rows, linking any URLs
+function renderSupplierList(val) {
+  const rows = val.split('\n').map(l => l.replace(/^[-•*]\s?/, '').trim()).filter(Boolean);
+  return rows.map(row => {
+    const onRoster = /\(on roster\)/i.test(row);
+    // linkify a bare URL or www. domain if present
+    const linked = esc(row).replace(/(https?:\/\/[^\s]+|www\.[^\s]+)/gi, u => {
+      const href = u.startsWith('http') ? u : 'https://' + u;
+      return `<a href="${href}" target="_blank" rel="noopener" style="color:var(--blue2)">${u}</a>`;
+    });
+    return `<div style="font-size:13px;color:var(--cream);line-height:1.5;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)${onRoster?';font-weight:600':''}">${onRoster?'⭐ ':'• '}${linked}</div>`;
+  }).join('');
+}
+
+function buildAiCardsHtml(sections) {
+  return Object.entries(AI_SECTION_CONFIG).map(([key, { label, color, bg }]) => {
+    if (!sections[key]) return '';
+    const inner = key === 'SUPPLIERS'
+      ? renderSupplierList(sections[key])
+      : `<div style="font-size:13px;color:var(--cream);line-height:1.55">${esc(sections[key])}</div>`;
+    return `<div style="background:${bg};border-left:2px solid ${color};border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:3px">${label}</div>
+      ${inner}
+    </div>`;
+  }).join('');
+}
+
+function renderStoredAiSummary(stored, dateStr, pid) {
+  const sections = parseAiSections(stored);
   const hasSections = Object.keys(sections).length > 0;
   let html;
   if (hasSections) {
-    html = Object.entries(sectionColors).map(([key, { label, color, bg }]) => {
-      if (!sections[key]) return '';
-      return `<div style="background:${bg};border-left:2px solid ${color};border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px">
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:3px">${label}</div>
-        <div style="font-size:13px;color:var(--cream);line-height:1.55">${esc(sections[key])}</div>
-      </div>`;
-    }).join('');
+    html = buildAiCardsHtml(sections);
   } else {
-    // Legacy plain-text summary — render as-is
     html = `<div style="font-size:13px;color:var(--mist);line-height:1.6">${esc(stored)}</div>`;
   }
   const genDate = dateStr ? new Date(dateStr).toLocaleDateString() : '';
-  html += `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:10px">Generated ${genDate}</div>`;
+  html += `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:10px">Generated ${genDate} · <a onclick="genOppInfoSummary('${pid}')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>`;
   return html;
 }
 
 async function genOppInfoSummary(pid) {
-  const p = S.pipeline[pid];
   const el = document.getElementById('oppAiSummary');
-  if (!p || !el) return;
-  el.innerHTML = '<span style="color:var(--muted)">● Analyzing opportunity…</span>';
+  if (el) el.innerHTML = '<span style="color:var(--muted)">● Analyzing opportunity…</span>';
+  return genOppInfoSummaryCore(pid, el);
+}
+
+async function genOppInfoSummaryCore(pid, el) {
+  const p = S.pipeline[pid];
+  if (!p) return;
   try {
     const descText = p.description && !p.description.startsWith('http')
       ? trunc(p.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' '), 800) : '';
 
     if (!p.title && !p.agency && !descText) {
-      el.innerHTML = '<span style="color:var(--muted)">Not enough data to assess. Click ↻ on the pipeline card to pull full details from SAM.gov first.</span>';
+      if (el) el.innerHTML = '<span style="color:var(--muted)">Not enough data to assess. Click ↻ on the pipeline card to pull full details from SAM.gov first.</span>';
       return;
     }
 
-    // ── Gather sub assignment context for this opp ──────────────────────────
-    const oppSubs = S.subAssignments.filter(a => a.oppId === pid);
-    const awardedSub = oppSubs.find(a => a.status === 'awarded');
-    const subLines = oppSubs.length
-      ? oppSubs.map(a => `  • ${a.subName} — ${a.scope ? trunc(a.scope,60) : 'no scope'} — $${fmt(a.quotedAmount||0)} — ${a.status}`).join('\n')
-      : '  None assigned yet';
-
-    // ── Win/loss history for this agency ───────────────────────────────────
-    const agencyWL = S.winloss.filter(w => w.agency && p.agency && w.agency.toLowerCase().includes(p.agency.toLowerCase().split(' ')[0]));
-    const wlLines = agencyWL.length
-      ? agencyWL.map(w => `  • ${w.outcome.toUpperCase()} — ${w.name} — $${fmt(w.value||0)} — ${w.reason ? trunc(w.reason,80) : ''}`).join('\n')
-      : '  No prior bids with this agency';
-
-    // ── Agency relationship notes ──────────────────────────────────────────
-    const agencyRec = S.agencies.find(a => a.name && p.agency && a.name.toLowerCase().includes(p.agency.toLowerCase().split(' ')[0]));
-    const agencyNotes = agencyRec?.notes ? trunc(agencyRec.notes, 200) : '';
-
-    // ── Bid data ──────────────────────────────────────────────────────────
-    const bidLines = [
-      p.finalBid ? `  Final bid: $${fmt(p.finalBid)}` : '',
-      p.prevContractValue ? `  Previous contract value: $${fmt(p.prevContractValue)}${p.prevContractSource ? ' ('+p.prevContractSource+')' : ''}` : '',
-      awardedSub ? `  Awarded sub cost: $${fmt(awardedSub.quotedAmount||0)} — Margin if finalBid set: ${p.finalBid && awardedSub.quotedAmount ? ((p.finalBid - awardedSub.quotedAmount)/p.finalBid*100).toFixed(1)+'%' : 'not yet calculated'}` : ''
-    ].filter(Boolean).join('\n') || '  No bid data entered yet';
+    // ── Our active subs (full roster, for the model to match against) ───────
+    const myRoster = S.subs.filter(s => s.status === 'active');
+    const rosterLines = myRoster.length
+      ? myRoster.map(s => `  • ${s.name} — ${s.trade}${s.naics?' (NAICS '+s.naics+')':''}${s.phone?' — '+s.phone:''}${s.email?' — '+s.email:''}`).join('\n')
+      : '  None on file';
 
     const margin = S.settings.margin || 15;
 
-    const prompt = `You are assessing a federal contract opportunity for Ironwood Solutions LLC, a small business federal prime contractor that operates on a subcontractor pass-through model (we manage subs, we do not self-perform work). Our default target margin is ${margin}%.
+    const prompt = `You are assessing a federal contract opportunity for Ironwood Solutions LLC, a small business federal PRIME contractor. Target margin ~${margin}%.
 
-Respond ONLY in this exact format — no preamble, no markdown, no extra text:
+OUR BUSINESS MODEL — critical to assessing fit correctly:
+Ironwood is a pass-through prime. We win federal contracts and fulfill them through third parties — we do NOT self-perform and do NOT need to manufacture, hold the product, or have the capability in-house. Two fulfillment types:
+  1. SUPPLY / SOURCING (e.g. "supply X product", "deliver Y goods"): We source the item from a distributor/wholesaler/manufacturer and deliver it. A commodity/product buy is one of our STRONGEST fit types — do NOT mark it weak just because we don't manufacture the item or lack a matching sub.
+  2. SERVICE (janitorial, HVAC, grounds, admin, etc.): We subcontract the labor to a vendor who performs the work.
+FIRST decide which type this is, then assess fit accordingly.
 
-FIT: [1 sentence — is this a strong/moderate/weak fit and why]
-COMPETITION: [1 sentence — set-aside type implications, likely competition landscape, incumbent risk if any]
-SUB STRATEGY: [1-2 sentences — what trade(s) to sub out, which of our roster subs fit, any coverage gaps]
-BID ANGLE: [1 sentence — pricing competitiveness relative to previous contract value, margin realism]
+Set-aside note: agency names like "UNICOR" / "Federal Prison Industries" are the BUYING agency or a mandatory-source consideration, NOT a requirement that we manufacture in a prison. Treat as a normal federal customer unless the solicitation explicitly restricts eligibility.
+
+YOUR TASK — use web search to find real, currently-operating suppliers/subcontractors who could provide the item or perform the work for this specific opportunity. Search for actual companies (distributors, wholesalers, manufacturers, or service subs as appropriate). Prefer ones that can serve federal customers or the place of performance.
+
+OUR EXISTING SUBS (prioritize these if any genuinely fit — list them FIRST and mark "(on roster)"):
+${rosterLines}
+
+Respond ONLY in this exact format — no preamble, no markdown headers, no extra commentary:
+
+FIT: [1 sentence — strong/moderate/weak fit and why]
+COMPETITION: [1 sentence — set-aside type, likely competition, incumbent risk if any]
+SUPPLIERS: [list 3-5 real companies found via search, one per line, each as: "Company Name — what they provide — location — website or contact if found". Put any of OUR existing subs that fit at the top marked "(on roster)". Then a few outside options as backup.]
 NEXT ACTION: [1 sentence — the single most important thing to do right now, specific and direct]
 
 OPPORTUNITY:
@@ -1442,77 +1490,46 @@ Agency: ${p.agency || '—'}
 NAICS: ${p.naics || '—'}
 Stage: ${TAG_LABELS[p.tag] || p.tag || '—'}
 Deadline: ${p.deadline ? fmtDate(p.deadline) : '—'}
-${descText ? 'Description: '+descText : ''}
+${descText ? 'Description: '+descText : ''}`;
 
-SUB ASSIGNMENTS:
-${subLines}
-
-BID DATA:
-${bidLines}
-
-AGENCY HISTORY (win/loss):
-${wlLines}
-${agencyNotes ? '\nAGENCY NOTES:\n  '+agencyNotes : ''}
-
-OUR SUB ROSTER (active only): ${S.subs.filter(s=>s.status==='active').map(s=>`${s.name} [${s.trade}${s.naics?' NAICS '+s.naics:''}]`).join(', ') || 'None on file'}`;
-
-    const aiText = await callAI(prompt, 500);
+    // Sonnet + web search — needs real supplier research, not just model recall.
+    const aiText = await callAI(prompt, 1500, 'claude-sonnet-4-6', {
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }]
+    });
     const summary = aiText || 'Assessment unavailable';
 
-    // ── Render as structured cards ─────────────────────────────────────────
-    const sections = { FIT: null, COMPETITION: null, 'SUB STRATEGY': null, 'BID ANGLE': null, 'NEXT ACTION': null };
-    const sectionColors = {
-      'FIT':          { label: '🎯 Fit',             color: 'var(--green2)',  bg: 'rgba(82,183,136,0.07)'  },
-      'COMPETITION':  { label: '⚔️ Competition',     color: 'var(--blue2)',   bg: 'rgba(69,123,157,0.07)'  },
-      'SUB STRATEGY': { label: '👷 Sub Strategy',    color: 'var(--amber2)',  bg: 'rgba(196,123,43,0.07)'  },
-      'BID ANGLE':    { label: '💰 Bid Angle',        color: 'var(--purple2)', bg: 'rgba(155,93,229,0.07)'  },
-      'NEXT ACTION':  { label: '▶ Next Action',      color: 'var(--cream)',   bg: 'rgba(255,255,255,0.04)' }
-    };
+    // ── Parse sections (multi-line aware, handles SUPPLIERS list) ──────────
+    const sections = parseAiSections(summary);
+    const parsed = Object.keys(sections).length > 0;
 
-    // Parse sections from response
-    let parsed = false;
-    const lines = summary.split('\n');
-    for (const line of lines) {
-      for (const key of Object.keys(sections)) {
-        if (line.startsWith(key + ':')) {
-          sections[key] = line.slice(key.length + 1).trim();
-          parsed = true;
-        }
-      }
-    }
-
-    let html;
-    if (parsed && Object.values(sections).some(v => v)) {
-      html = Object.entries(sections).map(([key, val]) => {
-        if (!val) return '';
-        const { label, color, bg } = sectionColors[key];
-        return `<div style="background:${bg};border-left:2px solid ${color};border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px">
-          <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:3px">${label}</div>
-          <div style="font-size:13px;color:var(--cream);line-height:1.55">${esc(val)}</div>
-        </div>`;
-      }).join('');
-    } else {
-      // Fallback: render as plain text if format wasn't followed
-      html = `<div style="font-size:13px;color:var(--mist);line-height:1.6">${esc(summary)}</div>`;
-    }
-
-    html += `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:10px">Generated ${new Date().toLocaleDateString()} · <a onclick="genOppInfoSummary('${pid}')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>`;
-
-    el.innerHTML = html;
-    el.style.fontStyle = 'normal';
-
-    // Persist plain text version to pipeline for storage
-    const plainSummary = Object.entries(sections)
-      .filter(([,v]) => v)
-      .map(([k,v]) => `${k}: ${v}`)
-      .join('\n') || summary;
+    // ── Persist plain text version to pipeline for storage ─────────────────
+    const plainSummary = parsed
+      ? Object.entries(sections).filter(([,v]) => v).map(([k,v]) => `${k}: ${v}`).join('\n')
+      : summary;
 
     S.pipeline[pid].aiSummary = plainSummary;
     S.pipeline[pid].aiSummaryDate = new Date().toISOString();
     try { await save('Pipeline'); } catch(saveErr) { console.log('Summary save failed, still shown:', saveErr); }
 
+    // ── Render to UI if a target element was provided ──────────────────────
+    if (el) {
+      let html;
+      if (parsed) {
+        html = buildAiCardsHtml(sections);
+      } else {
+        html = `<div style="font-size:13px;color:var(--mist);line-height:1.6">${esc(summary)}</div>`;
+      }
+      html += `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:10px">Generated ${new Date().toLocaleDateString()} · <a onclick="genOppInfoSummary('${pid}')" style="color:var(--blue2);cursor:pointer">Regenerate</a></div>`;
+      el.innerHTML = html;
+      el.style.fontStyle = 'normal';
+    }
+    return plainSummary;
+
   } catch(e) {
-    el.innerHTML = `<span style="color:var(--red2)">Assessment unavailable — ${esc(e.message)}</span><div style="margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">Retry</button></div>`;
+    if (el) {
+      el.innerHTML = `<span style="color:var(--red2)">Assessment unavailable — ${esc(e.message)}</span><div style="margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">Retry</button></div>`;
+    }
+    throw e;
   }
 }
 
@@ -1560,6 +1577,7 @@ async function tagOpp(pid, tag, meta) {
     logActivity('Removed opportunity from pipeline', 'var(--mist)');
   } else {
     const existing = S.pipeline[pid] || {};
+    const isNew = !S.pipeline[pid];  // first time entering the pipeline
     S.pipeline[pid] = {
       ...existing,
       pid,
@@ -1575,9 +1593,38 @@ async function tagOpp(pid, tag, meta) {
     };
     logActivity(`Tagged "${trunc(meta.title||'',40)}" as ${TAG_LABELS[tag]||tag}`, 'var(--green2)');
     toast(`Added to pipeline: ${TAG_LABELS[tag]||tag} ✓`);
+    updateBadges();
+    await save('Pipeline');
+    // Auto-generate AI fit assessment for newly-added opps (runs in background,
+    // does not block the UI). Skips if one already exists. Uses Haiku via proxy —
+    // separate budget from the SAM.gov daily quota.
+    if (isNew && !S.pipeline[pid].aiSummary && AUTO_AI_ASSESS) {
+      genOppInfoSummaryBackground(pid);
+    }
+    return;
   }
   updateBadges();
   await save('Pipeline');
+}
+
+// Background variant — generates the assessment without a visible target element,
+// stores it to the pipeline so it's ready when the user opens the opp.
+async function genOppInfoSummaryBackground(pid) {
+  try {
+    const p = S.pipeline[pid];
+    if (!p) return;
+    toast('✦ Running AI fit assessment…');
+    await genOppInfoSummaryCore(pid, null);  // null el = store only, no render
+    toast('✦ AI assessment ready');
+    // If the opp detail view is currently open on this pid, refresh it
+    const openEl = document.getElementById('oppAiSummary');
+    if (openEl && document.body.contains(openEl)) {
+      openEl.innerHTML = renderStoredAiSummary(S.pipeline[pid].aiSummary, S.pipeline[pid].aiSummaryDate, pid);
+    }
+  } catch(e) {
+    console.log('Background AI assessment failed:', e.message);
+    // Silent — user can still generate manually from the opp view
+  }
 }
 
 // ══ PIPELINE ══════════════════════════════════════════════════════════════════
@@ -1828,7 +1875,7 @@ function renderOppInfoTab(pid) {
           <button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">${p.aiSummary ? '↻ Regenerate' : 'Generate ✦'}</button>
         </div>
         <div id="oppAiSummary" style="background:rgba(82,183,136,0.05);border:1px solid rgba(82,183,136,0.15);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--mist);line-height:1.6;${p.aiSummary?'':'font-style:italic'}">
-          ${p.aiSummary ? renderStoredAiSummary(p.aiSummary, p.aiSummaryDate, pid) : '<span style="color:var(--muted)">Click "Generate" to get an AI fit assessment — covers opportunity fit, competition landscape, sub strategy, bid angle, and next action.</span>'}
+          ${p.aiSummary ? renderStoredAiSummary(p.aiSummary, p.aiSummaryDate, pid) : '<span style="color:var(--muted)">Click "Generate" to get an AI fit assessment — searches the web for real suppliers/subs who can provide the item or do the work, prioritizing your roster, plus fit, competition, and next action.</span>'}
         </div>
       </div>
 
@@ -3751,6 +3798,16 @@ function renderSettings(c,ta){
       </div>
     </div>
     <div class="setting-group">
+      <div class="setting-group-title">AI Fit Assessment</div>
+      <label style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border-radius:6px;cursor:pointer">
+        <input type="checkbox" id="autoAiToggle" ${AUTO_AI_ASSESS?'checked':''} onchange="setAutoAiAssess(this.checked)" style="width:16px;height:16px;cursor:pointer">
+        <div>
+          <div style="font-size:13px;color:var(--cream);font-weight:600">Auto-assess new opportunities</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">When ON, an AI fit assessment runs automatically the moment an opportunity is added to the pipeline. Uses Claude Haiku — separate from the SAM.gov daily quota.</div>
+        </div>
+      </label>
+    </div>
+    <div class="setting-group">
       <div class="setting-group-title">Google Sheets Connection</div>
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border-radius:6px;margin-bottom:12px">
         <div class="sync-dot live"></div>
@@ -4886,9 +4943,11 @@ function showManualEntry(pid) {
 
 // ══ AI PROXY HELPER ═══════════════════════════════════════════════════════════
 // Routes AI calls through Apps Script — uses GET to avoid CORS preflight
-async function callAI(prompt, maxTokens=200, model='claude-haiku-4-5') {
+async function callAI(prompt, maxTokens=200, model='claude-haiku-4-5', opts={}) {
   if (!prompt || !prompt.trim()) throw new Error('Empty prompt — no data to send');
-  const bodyPayload = JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
+  const payloadObj = { model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] };
+  if (opts.tools) payloadObj.tools = opts.tools;
+  const bodyPayload = JSON.stringify(payloadObj);
 
   // Always POST with text/plain — avoids the GET payload double-decode bug and
   // has no URL-length limit and no CORS preflight.
@@ -4900,8 +4959,16 @@ async function callAI(prompt, maxTokens=200, model='claude-haiku-4-5') {
   });
   if (!res.ok) throw new Error(`AI proxy ${res.status}`);
   const d = await res.json();
-  const text = d.content?.[0]?.text || d.text || '';
-  if (!text || d.error) throw new Error(d.error?.message || d.error || 'No response');
+  if (d.error) throw new Error(d.error?.message || d.error);
+  // Response may contain multiple content blocks (text + tool_use + web_search results).
+  // Concatenate all text blocks; ignore tool_use/server_tool_use/web_search_tool_result blocks.
+  let text = '';
+  if (Array.isArray(d.content)) {
+    text = d.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  } else {
+    text = d.content?.[0]?.text || d.text || '';
+  }
+  if (!text) throw new Error('No response');
   return text.replace(/```json|```/g,'').trim();
 }
 
