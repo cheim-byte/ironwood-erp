@@ -456,7 +456,7 @@ a:hover{text-decoration:underline}
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
       <span id="quotaBadge" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);letter-spacing:0.05em;padding:2px 8px;border:1px solid var(--border);border-radius:4px" title="SAM.gov daily quota">SAM 0/10</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.84</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.85</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -1371,33 +1371,44 @@ const AI_SECTION_CONFIG = {
 // Parse "KEY: value" output where values (esp. SUPPLIERS) may span multiple lines,
 // until the next known KEY header.
 function parseAiSections(text) {
-  const keys = Object.keys(AI_SECTION_CONFIG);
-  const sections = {};
-  const lines = text.split('\n');
-  let current = null;
-  for (let raw of lines) {
-    const line = raw.replace(/^\s*[-•*]\s?/, m => m); // keep bullets
-    let matchedKey = null;
-    for (const key of keys) {
-      if (line.trim().toUpperCase().startsWith(key + ':')) { matchedKey = key; break; }
-    }
-    if (matchedKey) {
-      current = matchedKey;
-      const val = line.trim().slice(matchedKey.length + 1).trim();
-      sections[current] = val ? [val] : [];
-    } else if (current && line.trim()) {
-      sections[current].push(line.trim());
+  const keys = Object.keys(AI_SECTION_CONFIG); // FIT, COMPETITION, SUPPLIERS, NEXT ACTION
+  const keyPattern = keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  // Match a header anywhere: optional ** / bullets, KEY (case-insensitive), optional **, colon.
+  const headerRe = new RegExp('\\**\\s*(' + keyPattern + ')\\s*\\**\\s*:', 'gi');
+
+  const matches = [];
+  let m;
+  while ((m = headerRe.exec(text)) !== null) {
+    const canonical = keys.find(k => k.toUpperCase() === m[1].toUpperCase());
+    if (canonical) {
+      matches.push({ key: canonical, headerStart: m.index, valStart: m.index + m[0].length });
     }
   }
-  // join into strings; SUPPLIERS keeps line breaks, others collapse
+
   const out = {};
-  for (const [k, arr] of Object.entries(sections)) out[k] = arr.join('\n').trim();
+  if (matches.length === 0) return out; // fallback to raw text
+
+  for (let i = 0; i < matches.length; i++) {
+    const valEnd = i + 1 < matches.length ? matches[i + 1].headerStart : text.length;
+    let val = text.slice(matches[i].valStart, valEnd);
+    val = val.replace(/\*\*/g, '').trim();
+    // collapse internal whitespace for non-supplier single-sentence sections
+    if (matches[i].key !== 'SUPPLIERS') val = val.replace(/\s+/g, ' ').trim();
+    out[matches[i].key] = val;
+  }
   return out;
 }
 
-// Render a supplier list value (multi-line) into styled rows, linking any URLs
+// Render a supplier list value into styled rows, linking any URLs.
+// Entries are separated by " - " (hyphen); fields WITHIN an entry use " — " (em-dash).
 function renderSupplierList(val) {
-  const rows = val.split('\n').map(l => l.replace(/^[-•*]\s?/, '').trim()).filter(Boolean);
+  let rows = val.split('\n').map(l => l.trim()).filter(Boolean);
+  // If everything came on one line, split on " - " (hyphen + spaces) between entries.
+  // Do NOT split on em-dash (—) or en-dash (–) — those separate fields inside an entry.
+  if (rows.length <= 1) {
+    rows = val.split(/\s+-\s+/).map(s => s.trim()).filter(Boolean);
+  }
+  rows = rows.map(l => l.replace(/^[-•*]\s?/, '').trim()).filter(Boolean);
   return rows.map(row => {
     const onRoster = /\(on roster\)/i.test(row);
     // linkify a bare URL or www. domain if present
