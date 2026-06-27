@@ -455,7 +455,7 @@ a:hover{text-decoration:underline}
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.87</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.90</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -477,7 +477,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbw9AzXA63bUCDlNz1tWvVj8S3sbf9KvYc0g1TjQ8WREysrV8tqkKpiprW7db40777vqPQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzrF0FbrUHlT93ShzKD6AvP8lSGQel-PDsBmiRIHJ0ytbAQkEXulmz6IZXxFcbm5lOqYw/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -548,6 +548,7 @@ const S = {
   govPayments: [],
   subPayments: [],
   attachments: [],
+  oppChats: {},
   settings: { company: 'Ironwood Solutions', margin: 15, samKey: '' }
 };
 
@@ -560,7 +561,7 @@ let syncing = false;
 const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss', pass:'Pass' };
 const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
 const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
-const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments','SearchCache'];
+const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments','OppChats','SearchCache'];
 
 
 
@@ -583,6 +584,26 @@ function rowsToAttachments(rows) {
     fileType:r[4], driveFileId:r[5], driveUrl:r[6],
     uploadDate:r[7], uploadedBy:r[8]||''
   }));
+}
+
+// OppChats serialization — one row per message. S.oppChats is keyed by pid.
+function oppChatsToRows() {
+  const rows = [['pid','role','content','time']];
+  Object.keys(S.oppChats).forEach(pid => {
+    (S.oppChats[pid]||[]).forEach(m => rows.push([
+      pid, m.role||'user', m.content||'', m.time||''
+    ]));
+  });
+  return rows;
+}
+function rowsToOppChats(rows) {
+  const map = {};
+  rows.slice(1).filter(r=>r[0]).forEach(r => {
+    const pid = r[0];
+    if (!map[pid]) map[pid] = [];
+    map[pid].push({ role: r[1]||'user', content: r[2]||'', time: r[3]||'' });
+  });
+  return map;
 }
 
 // SubPayments serialization
@@ -773,7 +794,8 @@ async function syncToSheet(tab) {
     Contracts: contractsToRows,
     GovPayments: govPaymentsToRows,
     SubPayments: subPaymentsToRows,
-    Attachments: attachmentsToRows
+    Attachments: attachmentsToRows,
+    OppChats: oppChatsToRows
   };
   if (map[tab]) await sheetWrite(tab, map[tab]());
 }
@@ -828,7 +850,7 @@ async function loadFromSheet() {
   try {
     // Load all tabs in parallel, fall back to empty arrays on individual tab failures
     const safe = async (tab, fallback) => { try { return await sheetRead(tab); } catch(e) { console.warn(`Tab load failed: ${tab}`, e.message); return fallback; } };
-    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay, attachs] = await Promise.all([
+    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay, attachs, oppchats] = await Promise.all([
       safe('Pipeline', [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource']]),
       safe('Subcontractors', [['name','trade','phone','email','naics','samStatus','insExpiry','status','rating','notes']]),
       safe('Quotes', [['name','opportunity','marginPct','created','lines']]),
@@ -842,6 +864,7 @@ async function loadFromSheet() {
       safe('GovPayments', [['payId','contractId','description','scheduledDate','receivedDate','amount','status','notes']]),
       safe('SubPayments', [['payId','contractId','subName','description','dueDate','paidDate','amount','status','govPayId','notes']]),
       safe('Attachments', [['attachId','recordType','recordId','fileName','fileType','driveFileId','driveUrl','uploadDate','uploadedBy']]),
+      safe('OppChats', [['pid','role','content','time']]),
     ]);
     S.pipeline = rowsToPipeline(pipe);
     S.subs = rowsToSubs(subs);
@@ -856,6 +879,7 @@ async function loadFromSheet() {
     S.govPayments = rowsToGovPayments(govpay);
     S.subPayments = rowsToSubPayments(subpay);
     S.attachments = rowsToAttachments(attachs);
+    S.oppChats = rowsToOppChats(oppchats);
     S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
 S.settings.driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_STORE) || '';
 S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
@@ -1709,7 +1733,7 @@ async function dropCard(e, newTag) {
   if(pid&&S.pipeline[pid]){S.pipeline[pid].tag=newTag;logActivity(`Moved "${trunc(S.pipeline[pid].title,30)}" to ${TAG_LABELS[newTag]}`,'var(--amber)');await save('Pipeline');renderPipeline();}
 }
 async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();const hidden=(tag==='loss'||tag==='pass');toast(hidden?`Moved to ${TAG_LABELS[tag]} — hidden from board ✓`:`Moved to ${TAG_LABELS[tag]} ✓`);}}
-async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');renderPipeline();}
+async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];const hadChat=S.oppChats[pid]&&S.oppChats[pid].length;if(hadChat)delete S.oppChats[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');if(hadChat){try{await save('OppChats');}catch(e){}}renderPipeline();}
 
 async function refreshOpp(pid) {
   const p = S.pipeline[pid];
@@ -1806,6 +1830,8 @@ function openOppDetail(pid, tab='info') {
       </div>
       <div class="opp-tabs">
         <button class="opp-tab ${tab==='info'?'active':''}" onclick="oppTab('${pid}','info',this)">Opportunity Info</button>
+        <button class="opp-tab ${tab==='assessment'?'active':''}" onclick="oppTab('${pid}','assessment',this)">AI Assessment</button>
+        <button class="opp-tab ${tab==='chat'?'active':''}" onclick="oppTab('${pid}','chat',this)">Ask Claude</button>
         <button class="opp-tab ${tab==='quotes'?'active':''}" onclick="oppTab('${pid}','quotes',this)">Sub Quotes</button>
         <button class="opp-tab ${tab==='bid'?'active':''}" onclick="oppTab('${pid}','bid',this)">Bid Builder</button>
         <button class="opp-tab ${tab==='notes'?'active':''}" onclick="oppTab('${pid}','notes',this)">Notes</button>
@@ -1822,10 +1848,13 @@ function oppTab(pid, tab, btn) {
   if (btn) btn.classList.add('active');
   const body = document.getElementById('oppDetailBody');
   if (body) body.innerHTML = renderOppTab(pid, tab);
+  if (tab === 'chat') initOppChat(pid);
 }
 
 function renderOppTab(pid, tab) {
   if (tab==='info') return renderOppInfoTab(pid);
+  if (tab==='assessment') return renderAssessmentTab(pid);
+  if (tab==='chat') return renderChatTab(pid);
   if (tab==='quotes') return renderQuotesTab(pid);
   if (tab==='bid') return renderBidTab(pid);
   return renderNotesTab(S.pipeline[pid]);
@@ -1872,16 +1901,6 @@ function renderOppInfoTab(pid) {
       </div>` : ''}
 
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green2);text-transform:uppercase;letter-spacing:0.1em">AI Fit Assessment</div>
-          <button class="btn btn-ghost btn-xs" onclick="genOppInfoSummary('${pid}')">${p.aiSummary ? '↻ Regenerate' : 'Generate ✦'}</button>
-        </div>
-        <div id="oppAiSummary" style="background:rgba(82,183,136,0.05);border:1px solid rgba(82,183,136,0.15);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--mist);line-height:1.6;${p.aiSummary?'':'font-style:italic'}">
-          ${p.aiSummary ? renderStoredAiSummary(p.aiSummary, p.aiSummaryDate, pid) : '<span style="color:var(--muted)">Click "Generate" to get an AI fit assessment — searches the web for real suppliers/subs who can provide the item or do the work, prioritizing your roster, plus fit, competition, and next action.</span>'}
-        </div>
-      </div>
-
-      <div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Opportunity Details</div>
         <table style="width:100%;border-collapse:collapse">
           ${rows.map(([k,v],i)=>`<tr style="border-bottom:1px solid var(--border)">
@@ -1911,6 +1930,205 @@ function renderOppInfoTab(pid) {
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('oppDetailOverlay')?.remove();refreshOpp('${pid}')">↻ Refresh from SAM.gov</button>
       </div>
     </div>`;
+}
+
+// ── AI ASSESSMENT TAB ─────────────────────────────────────────────────────────
+function renderAssessmentTab(pid) {
+  const p = S.pipeline[pid];
+  if (!p) return '';
+  return `
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--green2);text-transform:uppercase;letter-spacing:0.12em">AI Fit Assessment</div>
+        <button class="btn btn-ghost btn-sm" onclick="genOppInfoSummary('${pid}')">${p.aiSummary ? '↻ Regenerate' : 'Generate ✦'}</button>
+      </div>
+      <div id="oppAiSummary" style="background:rgba(82,183,136,0.05);border:1px solid rgba(82,183,136,0.15);border-radius:8px;padding:14px 16px;font-size:13px;color:var(--mist);line-height:1.6;${p.aiSummary?'':'font-style:italic'}">
+        ${p.aiSummary ? renderStoredAiSummary(p.aiSummary, p.aiSummaryDate, pid) : '<span style="color:var(--muted)">Click "Generate" to get an AI fit assessment — searches the web for real suppliers/subs who can provide the item or do the work, prioritizing your roster, plus fit, competition, and next action.</span>'}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:12px">Want to dig deeper on this opportunity? Use the <b style="color:var(--cream)">Ask Claude</b> tab to ask follow-up questions.</div>
+    </div>`;
+}
+
+// ── ASK CLAUDE (per-opportunity chat) ─────────────────────────────────────────
+function getOppChat(pid) {
+  return S.oppChats[pid] || [];
+}
+function setOppChatLocal(pid, msgs) {
+  // Update in-memory only (no sheet write) — used for optimistic UI before save
+  S.oppChats[pid] = msgs.slice(-40);
+}
+async function persistOppChat(pid, msgs) {
+  S.oppChats[pid] = msgs.slice(-40);
+  await save('OppChats');
+}
+
+function renderChatTab(pid) {
+  const p = S.pipeline[pid];
+  if (!p) return '';
+  return `
+    <div style="display:flex;flex-direction:column;height:60vh;max-height:560px">
+      <div style="font-size:11px;color:var(--muted);padding:0 4px 8px;border-bottom:1px solid var(--border);margin-bottom:10px">
+        Chatting about: <b style="color:var(--cream)">${esc(trunc(p.title||'this opportunity',60))}</b>
+        <button class="btn btn-ghost btn-xs" style="float:right;color:var(--red2)" onclick="clearOppChat('${pid}')">Clear chat</button>
+      </div>
+      <div id="oppChatLog" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+        <textarea id="oppChatInput" rows="2" placeholder="Ask about suppliers, competition, pricing, how to bid, draft an email…"
+          style="flex:1;resize:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--cream);font-size:13px;font-family:inherit"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendOppChat('${pid}')}"></textarea>
+        <button class="btn btn-primary" id="oppChatSend" onclick="sendOppChat('${pid}')" style="align-self:stretch">Send</button>
+      </div>
+    </div>`;
+}
+
+function initOppChat(pid) {
+  renderOppChatLog(pid);
+  const log = document.getElementById('oppChatLog');
+  if (log) log.scrollTop = log.scrollHeight;
+  const input = document.getElementById('oppChatInput');
+  if (input) input.focus();
+}
+
+function renderOppChatLog(pid) {
+  const log = document.getElementById('oppChatLog');
+  if (!log) return;
+  const msgs = getOppChat(pid);
+  if (!msgs.length) {
+    log.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:30px 10px;line-height:1.7">
+      Ask me anything about this opportunity.<br>
+      <span style="font-size:12px">e.g. "Who else could supply this?" · "Is our margin realistic?" · "Draft an intro email to the top supplier" · "What are the risks on this set-aside?"</span>
+    </div>`;
+    return;
+  }
+  log.innerHTML = msgs.map(m => {
+    if (m.role === 'user') {
+      return `<div style="align-self:flex-end;max-width:80%;background:var(--amber);color:#1a1410;border-radius:12px 12px 2px 12px;padding:9px 13px;font-size:13px;line-height:1.5">${esc(m.content)}</div>`;
+    }
+    return `<div style="align-self:flex-start;max-width:85%;background:var(--bg3);border:1px solid var(--border);border-radius:12px 12px 12px 2px;padding:10px 14px;font-size:13px;color:var(--cream);line-height:1.6">${mdLite(m.content)}</div>`;
+  }).join('');
+  log.scrollTop = log.scrollHeight;
+}
+
+// Minimal markdown for chat replies (bold, line breaks, bullets) — esc first
+function mdLite(text) {
+  let h = esc(text);
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  h = h.replace(/(^|\n)\s*[-•]\s+(.+)/g, '$1<div style="padding-left:12px">• $2</div>');
+  h = h.replace(/\n/g, '<br>');
+  return h;
+}
+
+async function clearOppChat(pid) {
+  if (!confirm('Clear this conversation? This removes it on all your devices.')) return;
+  S.oppChats[pid] = [];
+  renderOppChatLog(pid);
+  try { await save('OppChats'); } catch(e) { toast('Cleared locally; sync failed', true); }
+}
+
+async function sendOppChat(pid) {
+  const input = document.getElementById('oppChatInput');
+  const sendBtn = document.getElementById('oppChatSend');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const msgs = getOppChat(pid).slice(); // work on a copy
+  msgs.push({ role: 'user', content: text, time: new Date().toISOString() });
+  setOppChatLocal(pid, msgs);
+  input.value = '';
+  renderOppChatLog(pid);
+  // Persist the user turn (don't block UI on it)
+  persistOppChat(pid, msgs).catch(()=>{});
+
+  // Typing indicator
+  const log = document.getElementById('oppChatLog');
+  if (log) {
+    const typing = document.createElement('div');
+    typing.id = 'oppChatTyping';
+    typing.style = 'align-self:flex-start;color:var(--muted);font-size:13px;padding:6px 10px';
+    typing.textContent = '● Claude is thinking…';
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+  }
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '…'; }
+
+  try {
+    const reply = await callOppChatAI(pid, msgs);
+    msgs.push({ role: 'assistant', content: reply, time: new Date().toISOString() });
+    setOppChatLocal(pid, msgs);
+    renderOppChatLog(pid);
+    await persistOppChat(pid, msgs);
+  } catch(e) {
+    document.getElementById('oppChatTyping')?.remove();
+    msgs.push({ role: 'assistant', content: 'Sorry — I hit an error: ' + e.message + '. Try again.', time: new Date().toISOString() });
+    setOppChatLocal(pid, msgs);
+    renderOppChatLog(pid);
+    persistOppChat(pid, msgs).catch(()=>{});
+  } finally {
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+  }
+}
+
+// Build context + conversation, call Sonnet with web search, return reply text
+async function callOppChatAI(pid, msgs) {
+  const p = S.pipeline[pid];
+  const margin = S.settings.margin || 15;
+  const descText = p.description && !p.description.startsWith('http')
+    ? trunc(p.description.replace(/<[^>]*>/g,'').replace(/\s+/g,' '), 1000) : '';
+  const roster = S.subs.filter(s => s.status === 'active')
+    .map(s => `${s.name} [${s.trade}${s.naics?' NAICS '+s.naics:''}]`).join(', ') || 'None on file';
+
+  const systemContext = `You are Claude, embedded in Ironwood Solutions LLC's federal contracting ERP, acting as an advisor on ONE specific opportunity. Ironwood is a small business federal PRIME contractor using a pass-through model: it wins contracts and fulfills them through suppliers (for product/supply buys) or subcontractors (for service work) — it does NOT self-perform or manufacture. Target margin ~${margin}%.
+
+Be direct, practical, and specific. Use web search when the user asks about real suppliers, pricing, competitors, agency info, or anything current. When drafting emails or documents, make them ready to use. Keep answers focused and reasonably brief unless asked for depth.
+
+THE OPPORTUNITY IN FOCUS:
+Title: ${p.title || '—'}
+Agency: ${p.agency || '—'}
+NAICS: ${p.naics || '—'}
+Solicitation #: ${p.solNum || '—'}
+Stage: ${TAG_LABELS[p.tag] || p.tag || '—'}
+Deadline: ${p.deadline ? fmtDateTime(p.deadline) : '—'}
+${p.finalBid ? 'Our final bid: $'+fmt(p.finalBid) : ''}
+${p.prevContractValue ? 'Previous contract value: $'+fmt(p.prevContractValue) : ''}
+${descText ? 'Description: '+descText : ''}
+${p.aiSummary ? '\nPRIOR AI ASSESSMENT:\n'+p.aiSummary : ''}
+
+OUR ACTIVE SUB/SUPPLIER ROSTER: ${roster}`;
+
+  // First user message carries the context prefix; subsequent turns are raw.
+  const apiMessages = msgs.map((m, i) => {
+    if (i === 0 && m.role === 'user') {
+      return { role: 'user', content: systemContext + '\n\n---\n\nMy question: ' + m.content };
+    }
+    return { role: m.role, content: m.content };
+  });
+
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      token: SECRET, action: 'ai', sheetUrl: SHEET_URL,
+      payload: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1200,
+        messages: apiMessages,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }]
+      })
+    }),
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error('proxy ' + res.status);
+  const d = await res.json();
+  if (d.error) throw new Error(d.error?.message || d.error);
+  let textOut = '';
+  if (Array.isArray(d.content)) {
+    textOut = d.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  } else {
+    textOut = d.content?.[0]?.text || d.text || '';
+  }
+  if (!textOut) throw new Error('empty response');
+  return textOut;
 }
 
 // ── SUB QUOTES TAB ────────────────────────────────────────────────────────────
