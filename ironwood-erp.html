@@ -426,8 +426,8 @@ a:hover{text-decoration:underline}
   <nav class="sidebar-nav">
     <div class="nav-section">Main</div>
     <button class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">📊</span>Dashboard</button>
-    <button class="nav-item" onclick="nav('search')"><span class="nav-icon">🔍</span>Search<span class="nav-badge" id="nb-pipeline">0</span></button>
-    <button class="nav-item" onclick="nav('pipeline')"><span class="nav-icon">📋</span>Pipeline</button>
+    <button class="nav-item" onclick="nav('search')"><span class="nav-icon">🔍</span>Search</button>
+    <button class="nav-item" onclick="nav('pipeline')"><span class="nav-icon">📋</span>Pipeline<span class="nav-badge" id="nb-pipeline">0</span></button>
     <div class="nav-section">Business</div>
     <button class="nav-item" onclick="nav('subs')"><span class="nav-icon">👷</span>Subcontractors</button>
     <button class="nav-item" onclick="nav('pricing')"><span class="nav-icon">💰</span>Pricing & Quotes</button>
@@ -455,8 +455,7 @@ a:hover{text-decoration:underline}
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
-      <span id="quotaBadge" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mist);letter-spacing:0.05em;padding:2px 8px;border:1px solid var(--border);border-radius:4px" title="SAM.gov daily quota">SAM 0/10</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.85</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.87</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -519,28 +518,17 @@ function bumpSamQuota(n = 1) {
 
 function renderQuotaCounter() {
   const el = document.getElementById('quotaCounter');
-  const badge = document.getElementById('quotaBadge');
   if (!el) return;
   const used = getSamQuota();
   const remaining = SAM_DAILY_LIMIT - used;
-  let color, bg, borderColor;
-  if (remaining <= 0)      { color = 'var(--red2)';   bg = 'rgba(230,57,70,0.12)';    borderColor = 'rgba(230,57,70,0.35)'; }
-  else if (remaining <= 3) { color = 'var(--amber2)'; bg = 'rgba(196,123,43,0.12)';   borderColor = 'rgba(196,123,43,0.35)'; }
-  else                     { color = 'var(--green2)'; bg = 'rgba(82,183,136,0.10)';   borderColor = 'rgba(82,183,136,0.30)'; }
+  let color, bg;
+  if (remaining <= 0)      { color = 'var(--red2)';   bg = 'rgba(230,57,70,0.12)'; }
+  else if (remaining <= 3) { color = 'var(--amber2)'; bg = 'rgba(196,123,43,0.12)'; }
+  else                     { color = 'var(--green2)'; bg = 'rgba(82,183,136,0.10)'; }
   el.style.color = color;
   el.style.background = bg;
   el.innerHTML = `📡 ${used} / ${SAM_DAILY_LIMIT} SAM`;
-  if (badge) {
-    const resetHour = 20; // 8pm EST = midnight UTC
-    const now = new Date();
-    const estOffset = -5; // approximate; close enough for display
-    const estHour = (now.getUTCHours() + 24 + estOffset) % 24;
-    const hoursUntilReset = estHour < resetHour ? resetHour - estHour : 24 - estHour + resetHour;
-    badge.style.color = color;
-    badge.style.borderColor = borderColor;
-    badge.title = `${remaining} call${remaining!==1?'s':''} remaining today · Resets ~8pm EST (midnight UTC) · ~${hoursUntilReset}h from now`;
-    badge.innerHTML = `SAM ${remaining}/${SAM_DAILY_LIMIT} left`;
-  }
+  el.title = `${used} of ${SAM_DAILY_LIMIT} SAM.gov calls used today · ${remaining} remaining · Resets midnight UTC (8pm EST)`;
 }
 const SAM_KEY_DATE_STORE = 'iw_sam_key_date'; // ISO date when key was last saved
 const DRIVE_CLIENT_ID_STORE = 'iw_drive_client_id';
@@ -901,7 +889,10 @@ function logActivity(text, color='var(--amber)') {
 }
 
 function updateBadges() {
-  document.getElementById('nb-pipeline').textContent = Object.keys(S.pipeline).length;
+  // Count only active opportunities — exclude losses and passes
+  const active = Object.values(S.pipeline).filter(p => p.tag !== 'loss' && p.tag !== 'pass').length;
+  const el = document.getElementById('nb-pipeline');
+  if (el) el.textContent = active;
 }
 
 // ══ NAVIGATION ════════════════════════════════════════════════════════════════
