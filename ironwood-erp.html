@@ -455,7 +455,7 @@ a:hover{text-decoration:underline}
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.90</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.93</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -477,7 +477,7 @@ a:hover{text-decoration:underline}
 
 <script>
 // ══ CONFIG ════════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbzrF0FbrUHlT93ShzKD6AvP8lSGQel-PDsBmiRIHJ0ytbAQkEXulmz6IZXxFcbm5lOqYw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxv89QXbeCpCX7CM0Xoc_8kmLDsTO9Y7VmhsyJ1QjcsGS6Cgd7Ze-5gK5--eXCmMuV3MQ/exec';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1WkRuNrJNVsX6dfqol55WntASmrgqAXaB_FsGriZyCZ8/edit';
 const SECRET = 'ironwood2024erp';
 const SAM_KEY_STORE = 'iw_sam_key';
@@ -549,6 +549,7 @@ const S = {
   subPayments: [],
   attachments: [],
   oppChats: {},
+  oppChatDocs: {},
   settings: { company: 'Ironwood Solutions', margin: 15, samKey: '' }
 };
 
@@ -561,7 +562,7 @@ let syncing = false;
 const TAG_LABELS = { watching:'Watching', quoting:'Quoting', submitted:'Bid Submitted', won:'Contract Won', loss:'Loss', pass:'Pass' };
 const NOTICE_LABELS = { o:'Sources Sought', p:'Pre-Solicitation', k:'Combined Synopsis', r:'RFP', a:'Award', s:'Special' };
 const NOTICE_BADGE  = { o:'badge-sources', p:'badge-presol', k:'badge-presol', r:'badge-rfp', a:'badge-award' };
-const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments','OppChats','SearchCache'];
+const TABS = ['Pipeline','Subcontractors','Quotes','Invoices','Agencies','WinLoss','Activity','Settings','SubAssignments','Contracts','GovPayments','SubPayments','Attachments','OppChats','OppChatDocs','SearchCache'];
 
 
 
@@ -602,6 +603,34 @@ function rowsToOppChats(rows) {
     const pid = r[0];
     if (!map[pid]) map[pid] = [];
     map[pid].push({ role: r[1]||'user', content: r[2]||'', time: r[3]||'' });
+  });
+  return map;
+}
+
+// OppChatDocs — PDFs attached to an opp's chat. extractedText is what Claude reads;
+// driveUrl/driveFileId point to the original stored in Drive. Capped to fit a cell.
+const CHAT_DOC_TEXT_CAP = 45000; // Sheets cell limit is 50k chars
+function oppChatDocsToRows() {
+  const rows = [['pid','docId','fileName','driveFileId','driveUrl','extractedText','uploadDate','pages','truncated']];
+  Object.keys(S.oppChatDocs).forEach(pid => {
+    (S.oppChatDocs[pid]||[]).forEach(d => rows.push([
+      pid, d.docId||'', d.fileName||'', d.driveFileId||'', d.driveUrl||'',
+      (d.extractedText||'').slice(0, CHAT_DOC_TEXT_CAP),
+      d.uploadDate||'', d.pages||0, d.truncated?'1':''
+    ]));
+  });
+  return rows;
+}
+function rowsToOppChatDocs(rows) {
+  const map = {};
+  rows.slice(1).filter(r=>r[0]).forEach(r => {
+    const pid = r[0];
+    if (!map[pid]) map[pid] = [];
+    map[pid].push({
+      docId:r[1], fileName:r[2], driveFileId:r[3], driveUrl:r[4],
+      extractedText:r[5]||'', uploadDate:r[6]||'', pages:parseInt(r[7])||0,
+      truncated: r[8]==='1'
+    });
   });
   return map;
 }
@@ -795,7 +824,8 @@ async function syncToSheet(tab) {
     GovPayments: govPaymentsToRows,
     SubPayments: subPaymentsToRows,
     Attachments: attachmentsToRows,
-    OppChats: oppChatsToRows
+    OppChats: oppChatsToRows,
+    OppChatDocs: oppChatDocsToRows
   };
   if (map[tab]) await sheetWrite(tab, map[tab]());
 }
@@ -850,7 +880,7 @@ async function loadFromSheet() {
   try {
     // Load all tabs in parallel, fall back to empty arrays on individual tab failures
     const safe = async (tab, fallback) => { try { return await sheetRead(tab); } catch(e) { console.warn(`Tab load failed: ${tab}`, e.message); return fallback; } };
-    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay, attachs, oppchats] = await Promise.all([
+    const [pipe, subs, quotes, inv, ag, wl, act, settings, sa, contracts, govpay, subpay, attachs, oppchats, oppchatdocs] = await Promise.all([
       safe('Pipeline', [['pid','tag','title','agency','naics','solNum','deadline','url','notes','solNum2','finalBid','prevContractValue','prevContractSource']]),
       safe('Subcontractors', [['name','trade','phone','email','naics','samStatus','insExpiry','status','rating','notes']]),
       safe('Quotes', [['name','opportunity','marginPct','created','lines']]),
@@ -865,6 +895,7 @@ async function loadFromSheet() {
       safe('SubPayments', [['payId','contractId','subName','description','dueDate','paidDate','amount','status','govPayId','notes']]),
       safe('Attachments', [['attachId','recordType','recordId','fileName','fileType','driveFileId','driveUrl','uploadDate','uploadedBy']]),
       safe('OppChats', [['pid','role','content','time']]),
+      safe('OppChatDocs', [['pid','docId','fileName','driveFileId','driveUrl','extractedText','uploadDate','pages','truncated']]),
     ]);
     S.pipeline = rowsToPipeline(pipe);
     S.subs = rowsToSubs(subs);
@@ -880,6 +911,7 @@ async function loadFromSheet() {
     S.subPayments = rowsToSubPayments(subpay);
     S.attachments = rowsToAttachments(attachs);
     S.oppChats = rowsToOppChats(oppchats);
+    S.oppChatDocs = rowsToOppChatDocs(oppchatdocs);
     S.settings.samKey = localStorage.getItem(SAM_KEY_STORE) || '';
 S.settings.driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_STORE) || '';
 S.settings.driveFolderName = localStorage.getItem(DRIVE_FOLDER_STORE) || 'Ironwood ERP Attachments';
@@ -1733,7 +1765,7 @@ async function dropCard(e, newTag) {
   if(pid&&S.pipeline[pid]){S.pipeline[pid].tag=newTag;logActivity(`Moved "${trunc(S.pipeline[pid].title,30)}" to ${TAG_LABELS[newTag]}`,'var(--amber)');await save('Pipeline');renderPipeline();}
 }
 async function movePipe(pid,tag){if(S.pipeline[pid]){S.pipeline[pid].tag=tag;await save('Pipeline');renderPipeline();const hidden=(tag==='loss'||tag==='pass');toast(hidden?`Moved to ${TAG_LABELS[tag]} — hidden from board ✓`:`Moved to ${TAG_LABELS[tag]} ✓`);}}
-async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];const hadChat=S.oppChats[pid]&&S.oppChats[pid].length;if(hadChat)delete S.oppChats[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');if(hadChat){try{await save('OppChats');}catch(e){}}renderPipeline();}
+async function removePipe(pid){const t=S.pipeline[pid]?.title||'opportunity';delete S.pipeline[pid];const hadChat=S.oppChats[pid]&&S.oppChats[pid].length;const hadDocs=S.oppChatDocs[pid]&&S.oppChatDocs[pid].length;if(hadChat)delete S.oppChats[pid];if(hadDocs)delete S.oppChatDocs[pid];updateBadges();logActivity(`Removed "${trunc(t,30)}" from pipeline`,'var(--mist)');await save('Pipeline');if(hadChat){try{await save('OppChats');}catch(e){}}if(hadDocs){try{await save('OppChatDocs');}catch(e){}}renderPipeline();}
 
 async function refreshOpp(pid) {
   const p = S.pipeline[pid];
@@ -1967,24 +1999,61 @@ function renderChatTab(pid) {
   if (!p) return '';
   return `
     <div style="display:flex;flex-direction:column;height:60vh;max-height:560px">
-      <div style="font-size:11px;color:var(--muted);padding:0 4px 8px;border-bottom:1px solid var(--border);margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);padding:0 4px 8px;border-bottom:1px solid var(--border);margin-bottom:8px">
         Chatting about: <b style="color:var(--cream)">${esc(trunc(p.title||'this opportunity',60))}</b>
         <button class="btn btn-ghost btn-xs" style="float:right;color:var(--red2)" onclick="clearOppChat('${pid}')">Clear chat</button>
       </div>
+      <div id="oppChatDocBar" style="margin-bottom:8px">${renderChatDocBar(pid)}</div>
       <div id="oppChatLog" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+      <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;align-items:stretch">
+        <button class="btn btn-ghost" id="oppChatAttach" onclick="attachChatPdf('${pid}')" title="Attach a PDF (solicitation, spec sheet)" style="padding:0 12px">📎</button>
+        <button class="btn btn-ghost" id="oppChatUseDoc" onclick="toggleUseDoc('${pid}')" title="When ON, the attached document(s) are sent with your next message so Claude reads them. Off by default to keep messages cheap." style="padding:0 10px;display:none;font-size:11px;white-space:nowrap">📄 Use doc: <b style="margin-left:3px">Off</b></button>
         <textarea id="oppChatInput" rows="2" placeholder="Ask about suppliers, competition, pricing, how to bid, draft an email…"
           style="flex:1;resize:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--cream);font-size:13px;font-family:inherit"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendOppChat('${pid}')}"></textarea>
-        <button class="btn btn-primary" id="oppChatSend" onclick="sendOppChat('${pid}')" style="align-self:stretch">Send</button>
+        <button class="btn btn-primary" id="oppChatSend" onclick="sendOppChat('${pid}')">Send</button>
       </div>
     </div>`;
+}
+
+function renderChatDocBar(pid) {
+  const docs = S.oppChatDocs[pid] || [];
+  if (!docs.length) {
+    return `<div style="font-size:11px;color:var(--muted);padding:6px 10px;background:var(--bg3);border-radius:6px;border:1px dashed var(--border)">📄 No documents attached. Click 📎 to add a solicitation or spec PDF. Once attached, flip "Use doc" on for any message where you want Claude to read it.</div>`;
+  }
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px">
+    ${docs.map(d=>`
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(196,123,43,0.10);border:1px solid rgba(196,123,43,0.25);border-radius:14px;padding:3px 6px 3px 10px;font-size:11px">
+        <a href="${esc(d.driveUrl)}" target="_blank" style="color:var(--amber2);text-decoration:none" title="Open original in Drive">📄 ${esc(trunc(d.fileName,28))}</a>
+        ${d.truncated?'<span style="color:var(--muted)" title="Long document — text was truncated to fit">✂</span>':''}
+        <button onclick="removeChatPdf('${pid}','${d.docId}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px" title="Remove">×</button>
+      </div>`).join('')}
+  </div>`;
+}
+
+// Per-opp "use doc on next message" toggle state (resets when chat reopened)
+const _useDocState = {};
+function toggleUseDoc(pid) {
+  _useDocState[pid] = !_useDocState[pid];
+  syncUseDocButton(pid);
+}
+function syncUseDocButton(pid) {
+  const btn = document.getElementById('oppChatUseDoc');
+  if (!btn) return;
+  const hasDocs = (S.oppChatDocs[pid] || []).length > 0;
+  btn.style.display = hasDocs ? '' : 'none';
+  const on = !!_useDocState[pid];
+  btn.innerHTML = `📄 Use doc: <b style="margin-left:3px">${on?'On':'Off'}</b>`;
+  btn.style.background = on ? 'rgba(196,123,43,0.18)' : '';
+  btn.style.color = on ? 'var(--amber2)' : '';
+  btn.style.borderColor = on ? 'rgba(196,123,43,0.4)' : '';
 }
 
 function initOppChat(pid) {
   renderOppChatLog(pid);
   const log = document.getElementById('oppChatLog');
   if (log) log.scrollTop = log.scrollHeight;
+  syncUseDocButton(pid);
   const input = document.getElementById('oppChatInput');
   if (input) input.focus();
 }
@@ -2032,6 +2101,11 @@ async function sendOppChat(pid) {
   const text = input.value.trim();
   if (!text) return;
 
+  // Capture the doc toggle for THIS message, then reset it (deliberate each time)
+  const useDoc = !!_useDocState[pid];
+  _useDocState[pid] = false;
+  syncUseDocButton(pid);
+
   const msgs = getOppChat(pid).slice(); // work on a copy
   msgs.push({ role: 'user', content: text, time: new Date().toISOString() });
   setOppChatLocal(pid, msgs);
@@ -2046,14 +2120,14 @@ async function sendOppChat(pid) {
     const typing = document.createElement('div');
     typing.id = 'oppChatTyping';
     typing.style = 'align-self:flex-start;color:var(--muted);font-size:13px;padding:6px 10px';
-    typing.textContent = '● Claude is thinking…';
+    typing.textContent = useDoc ? '● Claude is reading the document…' : '● Claude is thinking…';
     log.appendChild(typing);
     log.scrollTop = log.scrollHeight;
   }
   if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '…'; }
 
   try {
-    const reply = await callOppChatAI(pid, msgs);
+    const reply = await callOppChatAI(pid, msgs, useDoc);
     msgs.push({ role: 'assistant', content: reply, time: new Date().toISOString() });
     setOppChatLocal(pid, msgs);
     renderOppChatLog(pid);
@@ -2070,7 +2144,117 @@ async function sendOppChat(pid) {
 }
 
 // Build context + conversation, call Sonnet with web search, return reply text
-async function callOppChatAI(pid, msgs) {
+// ── Chat PDF attachment: store original in Drive + extract text for Claude ─────
+let _pdfjsLoading = null;
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (_pdfjsLoading) return _pdfjsLoading;
+  _pdfjsLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      try {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        resolve(window.pdfjsLib);
+      } catch(e) { reject(e); }
+    };
+    s.onerror = () => reject(new Error('Could not load PDF reader'));
+    document.head.appendChild(s);
+  });
+  return _pdfjsLoading;
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await loadPdfJs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  const maxPages = Math.min(pdf.numPages, 120);
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n\n';
+    if (text.length > CHAT_DOC_TEXT_CAP + 5000) break; // stop early if huge
+  }
+  return { text: text.trim(), pages: pdf.numPages };
+}
+
+function attachChatPdf(pid) {
+  if (!isDriveConnected()) {
+    toast('Connect Google Drive in Settings first', true);
+    return;
+  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf,.pdf';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      toast('PDFs only', true); return;
+    }
+    const btn = document.getElementById('oppChatAttach');
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+    try {
+      // 1) Upload original to Drive (reuses existing pipeline)
+      toast('Uploading to Drive…');
+      const result = await uploadToDrive(file, 'ChatDocs');
+      // 2) Extract text for Claude
+      toast('Reading PDF…');
+      let extractedText = '', pages = 0, truncated = false;
+      try {
+        const ex = await extractPdfText(file);
+        extractedText = ex.text;
+        pages = ex.pages;
+        if (extractedText.length > CHAT_DOC_TEXT_CAP) {
+          extractedText = extractedText.slice(0, CHAT_DOC_TEXT_CAP);
+          truncated = true;
+        }
+        if (!extractedText.trim()) {
+          extractedText = '(No selectable text found — this PDF may be scanned/image-only. The original is in Drive but Claude cannot read its contents.)';
+        }
+      } catch(exErr) {
+        extractedText = '(Text extraction failed: ' + exErr.message + '. Original stored in Drive.)';
+      }
+      // 3) Persist doc record
+      const doc = {
+        docId: 'DOC-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+        fileName: result.name,
+        driveFileId: result.id,
+        driveUrl: result.webViewLink,
+        extractedText, pages, truncated,
+        uploadDate: new Date().toISOString().split('T')[0]
+      };
+      if (!S.oppChatDocs[pid]) S.oppChatDocs[pid] = [];
+      S.oppChatDocs[pid].push(doc);
+      await save('OppChatDocs');
+      logActivity(`Attached "${trunc(result.name,30)}" to opp chat`, 'var(--amber2)');
+      toast(truncated ? 'PDF attached (long — text truncated) ✓' : 'PDF attached ✓');
+      const bar = document.getElementById('oppChatDocBar');
+      if (bar) bar.innerHTML = renderChatDocBar(pid);
+      _useDocState[pid] = true; // default ON right after attaching, so the next question uses it
+      syncUseDocButton(pid);
+    } catch(err) {
+      toast('Attach failed: ' + err.message, true);
+    } finally {
+      if (btn) { btn.textContent = '📎'; btn.disabled = false; }
+    }
+  };
+  input.click();
+}
+
+async function removeChatPdf(pid, docId) {
+  if (!confirm('Remove this document from the chat? (The original stays in your Drive.)')) return;
+  S.oppChatDocs[pid] = (S.oppChatDocs[pid]||[]).filter(d => d.docId !== docId);
+  const bar = document.getElementById('oppChatDocBar');
+  if (bar) bar.innerHTML = renderChatDocBar(pid);
+  if (!(S.oppChatDocs[pid]||[]).length) _useDocState[pid] = false;
+  syncUseDocButton(pid);
+  try { await save('OppChatDocs'); } catch(e) { toast('Removed locally; sync failed', true); }
+}
+
+async function callOppChatAI(pid, msgs, useDoc) {
   const p = S.pipeline[pid];
   const margin = S.settings.margin || 15;
   const descText = p.description && !p.description.startsWith('http')
@@ -2096,12 +2280,28 @@ ${p.aiSummary ? '\nPRIOR AI ASSESSMENT:\n'+p.aiSummary : ''}
 
 OUR ACTIVE SUB/SUPPLIER ROSTER: ${roster}`;
 
-  // First user message carries the context prefix; subsequent turns are raw.
+  // Append attached PDF documents ONLY when the user toggled "Use doc" for this turn
+  const docs = S.oppChatDocs[pid] || [];
+  let docContext = '';
+  if (useDoc && docs.length) {
+    docContext = '\n\n=== ATTACHED DOCUMENTS ===\nThe user has attached the following document(s) to this opportunity. Use their contents to answer questions. ' +
+      'If a document was truncated, say so when the answer might depend on the cut-off portion.\n\n' +
+      docs.map((d,i) => `--- DOCUMENT ${i+1}: ${d.fileName}${d.truncated?' (TRUNCATED — long document)':''} ---\n${d.extractedText}`).join('\n\n');
+  }
+  const fullContext = systemContext;
+
+  // Opportunity context goes on the FIRST user message. Document context goes on
+  // the LATEST user message so it survives history trimming and stays in view.
+  const lastUserIdx = msgs.map(m => m.role).lastIndexOf('user');
   const apiMessages = msgs.map((m, i) => {
-    if (i === 0 && m.role === 'user') {
-      return { role: 'user', content: systemContext + '\n\n---\n\nMy question: ' + m.content };
+    let content = m.content;
+    if (m.role === 'user' && i === lastUserIdx && docContext) {
+      content = docContext + '\n\n---\n\n' + content;
     }
-    return { role: m.role, content: m.content };
+    if (m.role === 'user' && i === 0) {
+      content = fullContext + '\n\n---\n\n' + content;
+    }
+    return { role: m.role, content };
   });
 
   const res = await fetch(API_URL, {
