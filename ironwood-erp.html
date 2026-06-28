@@ -988,7 +988,7 @@ function renderView(v) {
 // ══ DASHBOARD ═════════════════════════════════════════════════════════════════
 function renderDashboard(c, ta) {
   ta.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="loadFromSheet()">↻ Refresh</button>`;
-  const tagged = Object.keys(S.pipeline).length;
+  const tagged = Object.values(S.pipeline).filter(p=>p.tag!=='loss'&&p.tag!=='pass').length;
   const pursuing = Object.values(S.pipeline).filter(p=>p.tag==='quoting').length;
   const bidding = Object.values(S.pipeline).filter(p=>p.tag==='submitted').length;
   const totalRevenue = S.invoices.filter(i=>i.status==='paid').reduce((a,b)=>a+parseFloat(b.amount||0),0);
