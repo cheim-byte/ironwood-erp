@@ -455,7 +455,7 @@ a:hover{text-decoration:underline}
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.93</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.94</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -2006,7 +2006,7 @@ function renderChatTab(pid) {
       <div id="oppChatDocBar" style="margin-bottom:8px">${renderChatDocBar(pid)}</div>
       <div id="oppChatLog" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px"></div>
       <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;align-items:stretch">
-        <button class="btn btn-ghost" id="oppChatAttach" onclick="attachChatPdf('${pid}')" title="Attach a PDF (solicitation, spec sheet)" style="padding:0 12px">📎</button>
+        <button class="btn btn-ghost" id="oppChatAttach" onclick="attachChatPdf('${pid}')" title="Attach a PDF or ZIP solicitation package" style="padding:0 12px">📎</button>
         <button class="btn btn-ghost" id="oppChatUseDoc" onclick="toggleUseDoc('${pid}')" title="When ON, the attached document(s) are sent with your next message so Claude reads them. Off by default to keep messages cheap." style="padding:0 10px;display:none;font-size:11px;white-space:nowrap">📄 Use doc: <b style="margin-left:3px">Off</b></button>
         <textarea id="oppChatInput" rows="2" placeholder="Ask about suppliers, competition, pricing, how to bid, draft an email…"
           style="flex:1;resize:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--cream);font-size:13px;font-family:inherit"
@@ -2019,20 +2019,28 @@ function renderChatTab(pid) {
 function renderChatDocBar(pid) {
   const docs = S.oppChatDocs[pid] || [];
   if (!docs.length) {
-    return `<div style="font-size:11px;color:var(--muted);padding:6px 10px;background:var(--bg3);border-radius:6px;border:1px dashed var(--border)">📄 No documents attached. Click 📎 to add a solicitation or spec PDF. Once attached, flip "Use doc" on for any message where you want Claude to read it.</div>`;
+    return `<div style="font-size:11px;color:var(--muted);padding:6px 10px;background:var(--bg3);border-radius:6px;border:1px dashed var(--border)">📄 No documents attached. Click 📎 to add a solicitation PDF or ZIP package. Once attached, flip "Use doc" on for any message where you want Claude to read it.</div>`;
   }
   return `<div style="display:flex;flex-wrap:wrap;gap:6px">
-    ${docs.map(d=>`
+    ${docs.map(d=>{
+      const isZip = /\.zip$/i.test(d.fileName||'');
+      const icon = isZip ? '📦' : '📄';
+      const pageHint = isZip
+        ? (d.pages > 0 ? ` · ${d.pages} file${d.pages!==1?'s':''} read` : '')
+        : (d.pages > 0 ? ` · ${d.pages}p` : '');
+      return `
       <div style="display:flex;align-items:center;gap:6px;background:rgba(196,123,43,0.10);border:1px solid rgba(196,123,43,0.25);border-radius:14px;padding:3px 6px 3px 10px;font-size:11px">
-        <a href="${esc(d.driveUrl)}" target="_blank" style="color:var(--amber2);text-decoration:none" title="Open original in Drive">📄 ${esc(trunc(d.fileName,28))}</a>
+        <a href="${esc(d.driveUrl)}" target="_blank" style="color:var(--amber2);text-decoration:none" title="Open original in Drive">${icon} ${esc(trunc(d.fileName,28))}${pageHint}</a>
         ${d.truncated?'<span style="color:var(--muted)" title="Long document — text was truncated to fit">✂</span>':''}
         <button onclick="removeChatPdf('${pid}','${d.docId}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px" title="Remove">×</button>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
 // Per-opp "use doc on next message" toggle state (resets when chat reopened)
 const _useDocState = {};
+let _pendingZip = null; // holds {pid, driveResult, zipName, contents} while ZIP picker modal is open
 function toggleUseDoc(pid) {
   _useDocState[pid] = !_useDocState[pid];
   syncUseDocButton(pid);
@@ -2180,6 +2188,284 @@ async function extractPdfText(file) {
   return { text: text.trim(), pages: pdf.numPages };
 }
 
+// ── ZIP attachment support ────────────────────────────────────────────────────
+let _jszipLoading = null;
+function loadJSZip() {
+  if (window.JSZip) return Promise.resolve(window.JSZip);
+  if (_jszipLoading) return _jszipLoading;
+  _jszipLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = () => window.JSZip ? resolve(window.JSZip) : reject(new Error('JSZip not found after load'));
+    s.onerror = () => reject(new Error('Could not load ZIP reader'));
+    document.head.appendChild(s);
+  });
+  return _jszipLoading;
+}
+
+async function extractDocxText(uint8array) {
+  const JSZip = await loadJSZip();
+  const zip = await new JSZip().loadAsync(uint8array);
+  const xmlFile = zip.file('word/document.xml');
+  if (!xmlFile) return '';
+  const xml = await xmlFile.async('string');
+  // Collect paragraph breaks and text runs from Word XML in document order
+  const parts = [];
+  const paraRx = /<w:p[ >]/g;
+  const textRx = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  // interleave paragraph newlines with text runs in document order
+  const events = [];
+  let m;
+  paraRx.lastIndex = 0; textRx.lastIndex = 0;
+  while ((m = paraRx.exec(xml)) !== null) events.push({idx: m.index, type:'p'});
+  while ((m = textRx.exec(xml)) !== null) events.push({idx: m.index, type:'t', val: m[1]});
+  events.sort((a,b) => a.idx - b.idx);
+  events.forEach(ev => { if (ev.type === 'p') parts.push('\n'); else parts.push(ev.val); });
+  return parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function extractXlsxText(uint8array) {
+  const JSZip = await loadJSZip();
+  const zip = await new JSZip().loadAsync(uint8array);
+  // Build shared strings table
+  const sharedStrings = [];
+  const ssFile = zip.file('xl/sharedStrings.xml');
+  if (ssFile) {
+    const xml = await ssFile.async('string');
+    const rx = /<t[^>]*>([^<]*)<\/t>/g;
+    let m;
+    while ((m = rx.exec(xml)) !== null) sharedStrings.push(m[1]);
+  }
+  // Extract each sheet
+  const lines = [];
+  const sheetFiles = zip.file(/^xl\/worksheets\/sheet\d+\.xml$/);
+  for (const sf of sheetFiles) {
+    const xml = await sf.async('string');
+    // Find rows
+    const rowRx = /<row[^>]*>([\s\S]*?)<\/row>/g;
+    const cellRx = /<c[^>]*\st="s"[^>]*><v>(\d+)<\/v><\/c>|<c[^>]*>(?:<v>([^<]*)<\/v>)?<\/c>/g;
+    let rm;
+    while ((rm = rowRx.exec(xml)) !== null) {
+      const rowXml = rm[1];
+      const cells = [];
+      let cm;
+      cellRx.lastIndex = 0;
+      while ((cm = cellRx.exec(rowXml)) !== null) {
+        if (cm[1] !== undefined) cells.push(sharedStrings[parseInt(cm[1])] || '');
+        else cells.push(cm[2] || '');
+      }
+      if (cells.some(c => c.trim())) lines.push(cells.join('\t'));
+    }
+  }
+  return lines.join('\n').trim();
+}
+
+async function extractZipInnerFile(name, uint8array) {
+  const ext = (name.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
+  let text = '', pages = 1;
+  if (ext === 'pdf') {
+    const file = new File([uint8array], name, { type: 'application/pdf' });
+    const res = await extractPdfText(file);
+    text = res.text; pages = res.pages;
+  } else if (ext === 'txt' || ext === 'md' || ext === 'csv') {
+    text = new TextDecoder().decode(uint8array);
+    if (text.length > CHAT_DOC_TEXT_CAP + 5000) text = text.slice(0, CHAT_DOC_TEXT_CAP + 5000);
+  } else if (ext === 'docx') {
+    text = await extractDocxText(uint8array);
+  } else if (ext === 'xlsx') {
+    text = await extractXlsxText(uint8array);
+  } else {
+    return null; // not readable
+  }
+  return { text: text.trim(), pages };
+}
+
+const ZIP_READABLE_EXTS = new Set(['pdf','txt','md','csv','docx','xlsx']);
+
+async function processZipForChat(pid, file, driveResult) {
+  toast('Reading ZIP contents…');
+  const JSZip = await loadJSZip();
+  const buf = await file.arrayBuffer();
+  const zip = await new JSZip().loadAsync(buf);
+  const entries = [];
+  zip.forEach((relPath, entry) => {
+    if (entry.dir) return;
+    if (/^__MACOSX\//i.test(relPath)) return;
+    if (/\.(DS_Store|thumbs\.db)$/i.test(relPath)) return;
+    const name = relPath.split('/').pop();
+    const ext = (name.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
+    entries.push({ relPath, name, ext, entry, readable: ZIP_READABLE_EXTS.has(ext) });
+  });
+
+  // Extract text for readable entries
+  const contents = [];
+  for (const e of entries) {
+    if (!e.readable) {
+      contents.push({ name: e.name, ext: e.ext, readable: false, charCount: 0, text: '', error: null });
+      continue;
+    }
+    try {
+      const uint8 = await e.entry.async('uint8array');
+      const res = await extractZipInnerFile(e.name, uint8);
+      if (res === null) {
+        contents.push({ name: e.name, ext: e.ext, readable: false, charCount: 0, text: '', error: null });
+      } else {
+        const t = res.text.slice(0, CHAT_DOC_TEXT_CAP + 5000);
+        contents.push({ name: e.name, ext: e.ext, readable: true, charCount: t.length, text: t, error: null });
+      }
+    } catch(err) {
+      contents.push({ name: e.name, ext: e.ext, readable: false, charCount: 0, text: '', error: err.message });
+    }
+  }
+
+  // Sort: readable with text first, then by name
+  contents.sort((a,b) => {
+    if (a.readable !== b.readable) return a.readable ? -1 : 1;
+    if ((a.charCount>0) !== (b.charCount>0)) return a.charCount>0 ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  _pendingZip = { pid, driveResult, zipName: file.name, contents };
+  showZipPickerModal();
+}
+
+function _fmtChars(n) {
+  if (n >= 1000) return '~' + (n/1000).toFixed(1).replace(/\.0$/,'') + 'K chars';
+  return n + ' chars';
+}
+
+function showZipPickerModal() {
+  const { zipName, driveResult, contents } = _pendingZip;
+  const hasReadable = contents.some(c => c.readable && c.charCount > 0);
+
+  const rows = contents.map((c, i) => {
+    const extBadge = `<span style="font-family:'DM Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.06);color:var(--mist)">${esc(c.ext||'?')}</span>`;
+    if (!c.readable || c.charCount === 0) {
+      const reason = c.error ? `error: ${esc(c.error)}` : (c.readable ? 'no readable text' : 'binary/image — skipped');
+      return `<tr style="opacity:0.4">
+        <td style="padding:7px 8px"><input type="checkbox" class="zip-file-cb" data-idx="${i}" disabled></td>
+        <td style="padding:7px 8px;font-size:12px;color:var(--mist)">${esc(c.name)}</td>
+        <td style="padding:7px 8px">${extBadge}</td>
+        <td style="padding:7px 8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${reason}</td>
+      </tr>`;
+    }
+    const checked = true; // default all readable files checked
+    return `<tr>
+      <td style="padding:7px 8px"><input type="checkbox" class="zip-file-cb" data-idx="${i}" ${checked?'checked':''} onchange="updateZipBudget()"></td>
+      <td style="padding:7px 8px;font-size:12px;color:var(--cream)">${esc(c.name)}</td>
+      <td style="padding:7px 8px">${extBadge}</td>
+      <td style="padding:7px 8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--green2)">${_fmtChars(c.charCount)}${c.charCount > CHAT_DOC_TEXT_CAP ? ' ⚠ very long' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const body = `
+    <div style="margin-bottom:14px;font-size:12px;color:var(--mist)">
+      📦 <b style="color:var(--cream)">${esc(trunc(zipName,50))}</b> uploaded to Drive ✓<br>
+      <span style="font-size:11px">Select which files to send to Claude. Unreadable files (images, binaries) are automatically excluded.</span>
+    </div>
+    ${!hasReadable ? `<div style="color:var(--amber2);font-size:12px;padding:10px;background:rgba(196,123,43,0.08);border-radius:6px;border:1px solid rgba(196,123,43,0.2)">⚠ No readable text found in this ZIP. The original is in Drive, but Claude won't be able to read its contents.</div>` : ''}
+    ${hasReadable ? `<table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)"></th>
+        <th style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">File</th>
+        <th style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Type</th>
+        <th style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">Readable text</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
+      <div id="zipBudgetBar" style="font-family:'DM Mono',monospace;font-size:11px"></div>
+      <div id="zipOverCap" style="display:none;margin-top:6px;font-size:11px;color:var(--amber2)">⚠ Exceeds 45K cap — Claude will read the first 45K chars of the combined selection. Deselect large files to prioritize the most important ones.</div>
+    </div>` : ''}`;
+
+  const footer = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    ${hasReadable ? `<button class="btn btn-primary" onclick="finalizeZipAttachment()">Attach Selected →</button>` : ''}`;
+
+  openModal('Select Files from ZIP', body, footer, true);
+  updateZipBudget();
+}
+
+function updateZipBudget() {
+  if (!_pendingZip) return;
+  const cbs = document.querySelectorAll('.zip-file-cb:not(:disabled)');
+  let total = 0;
+  cbs.forEach(cb => {
+    if (cb.checked) {
+      const idx = parseInt(cb.dataset.idx);
+      total += _pendingZip.contents[idx]?.charCount || 0;
+    }
+  });
+  const bar = document.getElementById('zipBudgetBar');
+  const warn = document.getElementById('zipOverCap');
+  if (!bar) return;
+  const pct = Math.min(100, Math.round(total / CHAT_DOC_TEXT_CAP * 100));
+  const color = total > CHAT_DOC_TEXT_CAP ? 'var(--red2)' : total > CHAT_DOC_TEXT_CAP * 0.8 ? 'var(--amber2)' : 'var(--green2)';
+  bar.innerHTML = `Selected: <b style="color:${color}">${_fmtChars(total)}</b> of 45K char limit (${pct}%)`;
+  if (warn) warn.style.display = total > CHAT_DOC_TEXT_CAP ? '' : 'none';
+}
+
+async function finalizeZipAttachment() {
+  if (!_pendingZip) return;
+  const { pid, driveResult, zipName, contents } = _pendingZip;
+  const cbs = document.querySelectorAll('.zip-file-cb:not(:disabled)');
+  const selected = [];
+  cbs.forEach(cb => {
+    if (cb.checked) {
+      const idx = parseInt(cb.dataset.idx);
+      const c = contents[idx];
+      if (c && c.readable && c.charCount > 0) selected.push(c);
+    }
+  });
+
+  if (!selected.length) {
+    toast('No files selected', true);
+    return;
+  }
+
+  // Combine selected file texts with headers
+  let combined = selected.map(c => `--- FILE: ${c.name} ---\n${c.text}`).join('\n\n');
+  let truncated = false;
+  if (combined.length > CHAT_DOC_TEXT_CAP) {
+    combined = combined.slice(0, CHAT_DOC_TEXT_CAP);
+    truncated = true;
+  }
+
+  const doc = {
+    docId: 'DOC-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+    fileName: driveResult.name,
+    driveFileId: driveResult.id,
+    driveUrl: driveResult.webViewLink,
+    extractedText: combined,
+    pages: selected.length,
+    truncated,
+    uploadDate: new Date().toISOString().split('T')[0]
+  };
+
+  if (!S.oppChatDocs[pid]) S.oppChatDocs[pid] = [];
+  S.oppChatDocs[pid].push(doc);
+
+  closeModal();
+  _pendingZip = null;
+
+  try {
+    await save('OppChatDocs');
+  } catch(err) {
+    toast('Attached locally; sync failed: ' + err.message, true);
+  }
+
+  logActivity(`Attached ZIP "${trunc(driveResult.name,30)}" to opp chat (${selected.length} file${selected.length!==1?'s':''} read)`, 'var(--amber2)');
+  toast(truncated ? 'ZIP attached (text truncated to 45K) ✓' : `ZIP attached — ${selected.length} file${selected.length!==1?'s':''} readable ✓`);
+
+  const bar = document.getElementById('oppChatDocBar');
+  if (bar) bar.innerHTML = renderChatDocBar(pid);
+  _useDocState[pid] = true;
+  syncUseDocButton(pid);
+
+  const btn = document.getElementById('oppChatAttach');
+  if (btn) { btn.textContent = '📎'; btn.disabled = false; }
+}
+
 function attachChatPdf(pid) {
   if (!isDriveConnected()) {
     toast('Connect Google Drive in Settings first', true);
@@ -2187,20 +2473,30 @@ function attachChatPdf(pid) {
   }
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'application/pdf,.pdf';
+  input.accept = 'application/pdf,.pdf,application/zip,.zip';
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      toast('PDFs only', true); return;
+    const isZip = /\.zip$/i.test(file.name) || file.type === 'application/zip';
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+    if (!isZip && !isPdf) {
+      toast('PDFs and ZIPs only', true); return;
     }
     const btn = document.getElementById('oppChatAttach');
     if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
     try {
-      // 1) Upload original to Drive (reuses existing pipeline)
-      toast('Uploading to Drive…');
+      // 1) Upload original to Drive
+      toast(isZip ? 'Uploading ZIP to Drive…' : 'Uploading to Drive…');
       const result = await uploadToDrive(file, 'ChatDocs');
-      // 2) Extract text for Claude
+
+      if (isZip) {
+        // ZIP: release button then show picker modal (async extraction continues)
+        if (btn) { btn.textContent = '📎'; btn.disabled = false; }
+        await processZipForChat(pid, file, result);
+        return;
+      }
+
+      // PDF: existing extraction flow
       toast('Reading PDF…');
       let extractedText = '', pages = 0, truncated = false;
       try {
@@ -2217,7 +2513,7 @@ function attachChatPdf(pid) {
       } catch(exErr) {
         extractedText = '(Text extraction failed: ' + exErr.message + '. Original stored in Drive.)';
       }
-      // 3) Persist doc record
+      // 2) Persist doc record
       const doc = {
         docId: 'DOC-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
         fileName: result.name,
@@ -2233,12 +2529,13 @@ function attachChatPdf(pid) {
       toast(truncated ? 'PDF attached (long — text truncated) ✓' : 'PDF attached ✓');
       const bar = document.getElementById('oppChatDocBar');
       if (bar) bar.innerHTML = renderChatDocBar(pid);
-      _useDocState[pid] = true; // default ON right after attaching, so the next question uses it
+      _useDocState[pid] = true;
       syncUseDocButton(pid);
     } catch(err) {
       toast('Attach failed: ' + err.message, true);
     } finally {
-      if (btn) { btn.textContent = '📎'; btn.disabled = false; }
+      const b = document.getElementById('oppChatAttach');
+      if (b && b.disabled) { b.textContent = '📎'; b.disabled = false; }
     }
   };
   input.click();
