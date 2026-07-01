@@ -455,7 +455,7 @@ a:hover{text-decoration:underline}
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
       <span id="quotaCounter" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.03em;padding:3px 8px;border-radius:4px;cursor:default" title="SAM.gov API calls used today (resets midnight UTC / 8pm EST)">—</span>
-      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.94</span>
+      <span id="versionTag" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em">v0.95</span>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
   </div>
@@ -4670,6 +4670,7 @@ function fmtDate(s){if(!s)return'—';try{return new Date(s).toLocaleDateString(
 function fmtDateTime(s){if(!s)return'—';try{const d=new Date(s);const hasTime=typeof s==='string'&&s.includes('T')&&!s.endsWith('T00:00:00')&&s.split('T')[1]&&!s.split('T')[1].startsWith('00:00');const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});if(hasTime){const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});return dateStr+' at '+timeStr;}const prev=new Date(d.getTime()-86400000);const prevStr=prev.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});return dateStr+' (by EOD '+prevStr+')';}catch{return s;}}
 function isUrgent(s){if(!s)return false;const d=(new Date(s)-new Date())/86400000;return d>=0&&d<=7;}
 function postedFrom(){const d=new Date();d.setMonth(d.getMonth()-3);return`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;}
+function postedFromYearAgo(){const d=new Date();d.setDate(d.getDate()-364);return`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;}
 function timeAgo(iso){const s=Math.floor((Date.now()-new Date(iso))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
 function setQ(el){const ta=document.getElementById('aiQuery');if(ta){ta.value=el.textContent;autoResize(ta);}}
@@ -5285,7 +5286,7 @@ async function searchSAMAwards(pid) {
       naicsCode: p.naics || '',
       limit: 20,
       offset: 0,
-      postedFrom: '01/01/2023',
+      postedFrom: postedFromYearAgo(),
       postedTo: `${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')}/${new Date().getFullYear()}`,
       noticeType: 'a'
     });
